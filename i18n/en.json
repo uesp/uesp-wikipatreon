@@ -1,0 +1,12 @@
+{
+	"uesppatreon-desc": "Link wiki users to their Patreon account and collect extra information.",
+	"uesppatreon": "UESP Patreon",
+    "uesppatreon-link-text": "Login with Patreon",
+    "uesppatreon-login-header": "Patreon Login",
+    "uesppatreon-linkmsg": "\n\n\nYou have to link accounts in order for any Patreon benefits to be applied to your Wiki account. Specific reward options may also be required and entered below.",
+	"prefs-uesppatreon": "Patreon",
+	"prefs-uesppatreon-link": "Link/Unlink Accounts",
+	"prefs-uesppatreon-options": "Reward Options",
+	"uesppatreon-link" : "Link your UESP Wiki account to your Patreon account: [https://patreon.com '''Link Accounts''']",
+	"uesppatreon-unlink" : "Your accounts have been linked. [https://patreon.com '''Unlink Accounts''']"
+}

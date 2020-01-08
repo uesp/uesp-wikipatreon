@@ -1,0 +1,17 @@
+name = uesp.wikipatreon
+description = MediaWiki extension for handling Patreon account linking and extra info collecting.
+repository = ?
+backup = false
+verbosity = 0
+
+	# Staging is important as the APC cache randomly breaks if you try
+	# to update the files in place.
+staged = true
+
+ignore = *.deploy
+ignore = .hg*
+
+dest = content1.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
+dest = content2.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
+dest = content3.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
+
