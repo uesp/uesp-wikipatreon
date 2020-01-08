@@ -61,6 +61,12 @@ class SpecialUespPatreon extends SpecialPage {
 		return $row['user_patreonid'];
 	}
 	
+	
+	public static function isAPayingUser() {
+		$patreonId = SpecialUespPatreon::loadPatreonUserId();
+		return $patreonId > 0;
+	}
+	
 
 	public function execute( $parameter ){
 		$this->setHeaders();
@@ -105,26 +111,40 @@ class SpecialUespPatreon extends SpecialPage {
         $accessToken = $tokens['access_token'];
         $refreshToken = $tokens['refresh_token'];
         
+        //$json = json_encode($tokens);
+        //error_log($json);
+        
         $api = new Patreon\API($accessToken);
         $patronResponse = $api->fetch_user();
         $patron = $patronResponse['data'];
         
-		$user = $this->addPatreonUser($patron);
+		$user = $this->addPatreonUser($patron, $tokens);
 		
 		$wgOut->redirect( SpecialUespPatreon::getPreferenceLink() );
 		return true;
 	}
 	
 	
-	private function addPatreonUser($patron) {
+	private function addPatreonUser($patron, $tokens) {
 		global $wgUser;
 		
 		if (!$wgUser->isLoggedIn()) return false;
 		
+		//$json = json_encode($patron);
+		//error_log($json);
+		
 		$db = wfGetDB(DB_MASTER);
 		
+		$expires = time() + $tokens['expires_in'];
+		//error_log("expires: " . time() . ":" . $tokens['expires_in'] . ":" . $expires);
+		
 		$db->delete('patreon_user', ['user_id' => $wgUser->getId()]);
-		$db->insert('patreon_user', ['user_patreonid' => $patron['id'], 'user_id' => $wgUser->getId()]);
+		$db->insert('patreon_user', ['user_patreonid' => $patron['id'], 
+				'user_id' => $wgUser->getId(), 
+				'token_expires' => wfTimestamp(TS_DB, $expires),
+				'access_token' => $tokens['access_token'],
+				'refresh_token' => $tokens['refresh_token']
+		]);
 		
 		return true;
 	}
