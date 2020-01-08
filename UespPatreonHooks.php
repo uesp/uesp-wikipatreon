@@ -50,7 +50,7 @@ class UespPatreonHooks {
 				'rawrow' => 1,
 			);
 			
-		$text = "Reward options may be specified here in the future.";
+		$text = "Reward options may be selected here in the future.";
 				
 		$preferences['uesppatreon-options'] =
 			array(
