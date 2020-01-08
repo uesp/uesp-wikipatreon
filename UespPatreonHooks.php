@@ -5,6 +5,9 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 
+require_once("/home/uesp/secrets/patreon.secrets");
+
+
 class UespPatreonHooks {
 	
 	
