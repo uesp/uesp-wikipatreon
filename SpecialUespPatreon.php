@@ -15,16 +15,16 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	
 	public static function getPreferenceLink() {
-		return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
-		//return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		//return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
 	}
 	
 	
 	public static function getLink($param) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 					
-		$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
-		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
 		return $link;
