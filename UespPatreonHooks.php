@@ -8,6 +8,10 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 require_once("/home/uesp/secrets/patreon.secrets");
 
 
+global $wgSharedTables;
+$wgSharedTables[] = 'patreon_user';
+
+
 class UespPatreonHooks {
 	
 	
