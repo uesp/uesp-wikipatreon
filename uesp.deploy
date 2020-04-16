@@ -10,8 +10,11 @@ staged = true
 
 ignore = *.deploy
 ignore = .hg*
+ignore = .git*
 
 dest = content1.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
 dest = content2.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
 dest = content3.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
+destname = [backup]backup1.uesp.net:/home/uesp/www/w/extensions/UespPatreon/
+destname = [dev]content3.uesp.net:/home/uesp/dev/www/w/extensions/UespPatreon/
 
