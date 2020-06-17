@@ -102,7 +102,7 @@ class SpecialUespPatreon extends SpecialPage {
         require_once('Patreon/OAuth.php');
         
         $patron = SpecialUespPatreon::loadPatreonUser();
-        if ($patron == null) return false;        
+        if ($patron == null) return false;
                 
 	    $oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
         $tokens = $oauth->refresh_token($patron['refresh_token']);
