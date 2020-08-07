@@ -21,6 +21,9 @@ class UespPatreonHooks {
 	 * @return bool
 	 */
 	public static function userGetDefaultOptions( &$defaultOptions ) {
+		
+		$defaultOptions['uesppatreon-shirtsize'] = 'Large';
+		
 		return true;
 	}
 	
@@ -31,7 +34,8 @@ class UespPatreonHooks {
 	 * @param $preferences Array: Preference descriptions
 	 * @return bool
 	 */
-	public static function getPreferences( $user, &$preferences ) {
+	public static function getPreferences( $user, &$preferences ) 
+	{
 		$patreonId = SpecialUespPatreon::loadPatreonUserId();
 		
         if ($patreonId <= 0) {
@@ -58,13 +62,32 @@ class UespPatreonHooks {
 			);
 			
 		$text = "Reward options may be selected here in the future.";
-				
+
+		/*
 		$preferences['uesppatreon-options'] =
 			array(
 				'type' => 'info',
 				'label' => '&#160;',
 				'default' => $text,
 				'section' => 'uesppatreon/uesppatreon-options',
+				'raw' => 1,
+				'rawrow' => 1,
+			); */
+		
+		$preferences['uesppatreon-shirtsize'] =
+			array(
+				'type' => 'select',
+				'label' => 'Select your preferred shirt size:',
+				//'default' => 'Large',
+				'section' => 'uesppatreon/uesppatreon-options',
+				'options' => [
+						'Small' => 'Small',
+						'Medium' => 'Medium',
+						'Large' => 'Large',
+						'X-Large' => 'X-Large',
+						'XX-Large' => 'XX-Large',
+						'XXX-Large' => 'XXX-Large',
+				],
 				'raw' => 1,
 				'rawrow' => 1,
 			);
