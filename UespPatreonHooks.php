@@ -87,6 +87,7 @@ class UespPatreonHooks {
 						'X-Large' => 'X-Large',
 						'XX-Large' => 'XX-Large',
 						'XXX-Large' => 'XXX-Large',
+						'XXXX-Large' => 'XXXX-Large',
 				],
 				'raw' => 1,
 				'rawrow' => 1,
