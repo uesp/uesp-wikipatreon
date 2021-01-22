@@ -8,6 +8,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 
 class SpecialUespPatreon extends SpecialPage {
 	
+	public $UESP_CAMPAIGN_ID = 2731208;
+	
 	
 	public function __construct() {
 		parent::__construct('UespPatreon');
@@ -20,13 +22,14 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
-	public static function getLink($param) {
+	public static function getLink($param, $query) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 					
 		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
 		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
+		if ($query) $link .= "?" . $query;
 		return $link;
 	}
 	
@@ -99,7 +102,7 @@ class SpecialUespPatreon extends SpecialPage {
         global $wgOut;
         
 		require_once('Patreon/API.php');
-        require_once('Patreon/OAuth.php');
+        require_once('Patreon/OAuth2.php');
         
         $patron = SpecialUespPatreon::loadPatreonUser();
         if ($patron == null) return false;
@@ -121,6 +124,7 @@ class SpecialUespPatreon extends SpecialPage {
 				$this->redirect();
 				break;
 			case 'callback':
+			case 'callback2':
 				$this->handleCallback();
 				break;
 			case 'unlink':
@@ -129,11 +133,287 @@ class SpecialUespPatreon extends SpecialPage {
 			case 'update':
 				$this->update();
 				break;
+			case 'list':
+			case 'view':
+				$this->showList();
+				break;
+			case 'shownew':
+			case 'new':
+				$this->showNew();
+				break;
+			case 'link':
+				$this->showLink();
+				break;
 			default:
 				$this->_default();
-			break;
+				break;
 		}
-	}	
+	}
+	
+	
+	private function hasPermission($permission) {
+		
+			/* Admins have all permissions */
+		if (in_array( 'sysop', $this->getUser()->getEffectiveGroups() )) return true;
+  		
+		$permission = "patreon_" . $permission;
+		
+		return $this->getUser()->isAllowed($permission);
+	}
+	
+	
+	private function loadPatronData($onlyActive = true, $includeFollowers = false) {
+		global $uespPatreonCreatorAccessToken;
+		global $uespPatreonCreatorAccessToken2;
+		global $wgOut;
+		
+		require_once('Patreon/API2.php');
+		require_once('Patreon/OAuth2.php');
+		
+		$api = new Patreon\API($uespPatreonCreatorAccessToken2);
+		
+		$response = $api->fetch_page_of_members_from_campaign($this->UESP_CAMPAIGN_ID, 2000, null);
+		
+		//$raw = print_r($response, true);
+		//$wgOut->addHTML("<pre>$raw</pre>");
+		
+		$patrons = $this->parsePatronData($response, $onlyActive, $includeFollowers);
+		
+		return $patrons;
+	}
+	
+	
+	private function parsePatronData($responseData, $onlyActive, $includeFollowers) {
+		$result = array();
+		
+		if ($responseData == null || count($responseData) == 0) return $result;
+		
+		$data = $responseData['data'];
+		$included = $responseData['included'];
+		$meta = $responseData['meta'];
+		
+		if ($data == null || $included == null) return $result;
+		
+		$addresses = array();
+		$tiers = array();
+		$users = array();
+		
+		foreach ($included as $row) {
+			$id = $row['id'];
+			$type = $row['type'];
+			$attr = $row['attributes'];
+			
+			if ($id == null || $type == null || $attr == null) continue;
+			
+			if ($type == "tier") {
+				$tiers[$id] = $attr;
+			}
+			else if ($type == "address") {
+				$addresses[$id] = $attr;
+			}
+			else if ($type == "user") {
+				$users[$id] = $attr;
+			}
+			else {
+					//? 
+			}
+		}
+		
+		foreach ($data as $row) {
+			$attr = $row['attributes'];
+			$rel = $row['relationships'];
+			
+			if ($attr == null) continue;
+			
+			if ($onlyActive && $attr['patron_status'] != "active_patron") continue;
+			if (!$includeFollowers && $attr['patron_status'] == "") continue;
+			
+			$patron = $attr;
+			$patron['tier'] = "None";
+			$patron['address'] = "Unknown";
+			$patron['discord'] = "Unknown";
+			
+			if ($rel['address'] != null && $rel['address']['data'] != null) {
+				$id = $rel['address']['data']['id'];
+				$patron['address'] = $addresses[$id];
+				if ($patron['address']== null) $patron['address'] = "Unknown";
+			}
+			
+			if ($rel['currently_entitled_tiers'] != null && $rel['currently_entitled_tiers']['data'] != null && $rel['currently_entitled_tiers']['data'][0] != null) {
+				$id = $rel['currently_entitled_tiers']['data'][0]['id'];
+				
+				if ($tiers[$id] != null) {
+					$patron['tier'] = $tiers[$id]['title'];
+					if ($patron['tier']== null) $patron['tier'] = "Unknown";
+				}
+			}
+			
+			if ($rel['user'] != null && $rel['user']['data'] != null) {
+				$id = $rel['user']['data']['id'];
+				
+				if ($users[$id] != null && $users[$id]['social_connections'] != null && $users[$id]['social_connections']['discord'] != null) {
+					$patron['discord'] = $users[$id]['social_connections']['discord'];
+				}
+			}
+			
+			$result[] = $patron;
+		}
+		
+		usort($result, array("SpecialUespPatreon", "sortPatronsByStartDate"));
+		
+		return $result;
+	}
+	
+	
+	private static function sortPatronsByStartDate($a, $b) {
+		return strcmp($a['pledge_relationship_start'], $b['pledge_relationship_start']);
+	}
+	
+	
+	private function showNew() {
+		global $wgOut;
+		
+		$req = $this->getRequest();
+		$showPeriod = $req->getVal('period');
+		
+		if ($showPeriod == "" || $showPeriod == null) $showPeriod = 7;
+		if ($showPeriod <= 0) $showPeriod = 1;
+		if ($showPeriod > 365) $showPeriod = 365;
+		
+		$periodName = "Last $showPeriod Days";
+		
+		if ($showPeriod == 7)
+			$periodName = "Last Week";
+		elseif ($showPeriod == 30 || $showPeriod == 31)
+			$periodName = "Last Month";
+		elseif ($showPeriod == 365)
+			$periodName = "Last Year";
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		$patrons = $this->loadPatronData(false, false);
+		
+		if ($patrons == null || count($patrons) == 0) {
+			$wgOut->addHTML("No patrons found!");
+			return;
+		}
+		
+		$newPatrons = array();
+		
+		$now = new DateTime("now");
+		
+		foreach ($patrons as $patron) {
+			$startDateStr = $patron['pledge_relationship_start'];
+			
+				//2020-02-22T00:31:24.967+00:00
+			$startDate = DateTime::createFromFormat("Y-m-d\TH:i:s??????????", $startDateStr);
+			if ($startDate === false) continue;
+			
+			$interval = $startDate->diff($now);
+			$days = $interval->format("%a");
+			if ($days > $showPeriod) continue;
+			
+			$newPatrons[] = $patron;
+		}
+		
+		$homeLink = $viewLink = SpecialUespPatreon::getLink("");
+		$weekLink = $viewLink = SpecialUespPatreon::getLink("shownew", "period=7");
+		$week2Link = $viewLink = SpecialUespPatreon::getLink("shownew", "period=14");
+		$monthLink = $viewLink = SpecialUespPatreon::getLink("shownew", "period=31");
+		
+		$wgOut->addHTML("<a href='$homeLink'>Home</a> : ");
+		$wgOut->addHTML("<a href='$weekLink'>Last Week</a> : ");
+		$wgOut->addHTML("<a href='$week2Link'>Last 2 Weeks</a> : ");
+		$wgOut->addHTML("<a href='$monthLink'>Last Month</a> ");
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($newPatrons);
+		$wgOut->addHTML("Showing $count new patrons in the $periodName...");
+		
+		$this->outputPatronTable($newPatrons);
+	}
+	
+	
+	private function showList() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		//$wgOut->addHTML("Show all patrons/pledges:");
+		
+		$patrons = $this->loadPatronData(false, false);
+		
+		if ($patrons == null || count($patrons) == 0) {
+			$wgOut->addHTML("No patrons found!");
+			return;
+		}
+		
+		$count = count($patrons);
+		$wgOut->addHTML("Showing data for $count patrons...");
+		
+		//$raw = print_r($patrons, true);
+		//$wgOut->addHTML("<pre>$raw</pre>");
+		
+		$this->outputPatronTable($patrons);
+	}
+	
+	
+	private function outputPatronTable($patrons) {
+		global $wgOut;
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'>");
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Full Name</th>");
+		$wgOut->addHTML("<th>Tier</th>");
+		$wgOut->addHTML("<th>Status</th>");
+		$wgOut->addHTML("<th>Pledge Type</th>");
+		$wgOut->addHTML("<th>Lifetime $</th>");
+		$wgOut->addHTML("<th>Patron Since</th>");
+		$wgOut->addHTML("</tr>");
+		
+		foreach ($patrons as $patron) {
+			$name = $patron['full_name'];
+			$tier = $patron['tier'];
+			$status = $patron['patron_status'];
+			$lifetime = '$' . number_format($patron['lifetime_support_cents'] / 100, 2);
+			$pledgeType = $patron['pledge_cadence'];
+			$pledgeStart = $patron['pledge_relationship_start'];
+			
+			$pledgeStart = preg_replace('/(.*)T(.*)\+.*/', '\1 \2', $pledgeStart);
+			
+			if ($pledgeType == 1)
+				$pledgeType = "Monthly";
+			else if ($pledgeType == 12)
+				$pledgeType = "Annual";
+			else
+				$pledgeType = "Every $pledgeType Months";
+			
+			if ($status == "active_patron")
+				$status = "Active";
+			elseif ($status == "declined_patron")
+				$status = "Declined";
+			elseif ($status == "former_patron")
+				$status = "Former";
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$name</td>");
+			$wgOut->addHTML("<td>$tier</td>");
+			$wgOut->addHTML("<td>$status</td>");
+			$wgOut->addHTML("<td>$pledgeType</td>");
+			$wgOut->addHTML("<td>$lifetime</td>");
+			$wgOut->addHTML("<td>$pledgeStart</td>");
+			$wgOut->addHTML("</tr>");
+		}
+		
+		$wgOut->addHTML("</table>");
+	}
 	
 	
 	private function update() {
@@ -200,9 +480,9 @@ class SpecialUespPatreon extends SpecialPage {
 		$db = wfGetDB(DB_MASTER);
 		
 		$db->update('patreon_user', ['has_donated' => $value],
-				[ 'user_patreonid' => $patreonId ]);		
+				[ 'user_patreonid' => $patreonId ]);
 		
-		return true;		
+		return true;
 	}
 	
 	
@@ -222,7 +502,7 @@ class SpecialUespPatreon extends SpecialPage {
         global $wgOut;
         
 		require_once('Patreon/API.php');
-        require_once('Patreon/OAuth.php');
+        require_once('Patreon/OAuth2.php');
         
 	    $oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
         $tokens = $oauth->get_tokens($_GET['code'], SpecialUespPatreon::getLink("callback"));
@@ -318,7 +598,7 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
-	private function _default() {
+	private function showLink() {
 		global $wgOut, $wgUser;
 		
 		if ( !$wgUser->isLoggedIn() ) {
@@ -343,6 +623,33 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		
 		return true;
+	}
+	
+	
+	private function showMainMenu() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$viewLink = SpecialUespPatreon::getLink("list");
+		$linkLink = SpecialUespPatreon::getLink("link");
+		$newLink = SpecialUespPatreon::getLink("shownew");
+		
+		$wgOut->addHTML("<ul>");
+		$wgOut->addHTML("<li><a href='$viewLink'>View Current Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
+		$wgOut->addHTML("</ul>");
+		
+		return true;
+	}
+	
+	
+	private function _default() {
+		return $this->showMainMenu();
 	}
 	
 };
