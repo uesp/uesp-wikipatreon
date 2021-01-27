@@ -78,7 +78,7 @@ class UespPatreonHooks {
 			array(
 				'type' => 'select',
 				'label' => 'Select your preferred shirt size:',
-				//'default' => 'Large',
+				//'default' => 'Large',	// Doesn't seem to work
 				'section' => 'uesppatreon/uesppatreon-options',
 				'options' => [
 						'Small' => 'Small',
@@ -99,8 +99,9 @@ class UespPatreonHooks {
 	
  	public static function onLoadExtensionSchemaUpdates( $updater ) {
 		$sql = __DIR__ . '/sql';
-		$schema = "$sql/patreon_user.sql";
-		$updater->addExtensionUpdate( [ 'addTable', 'patreon_user', $schema, true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_user', "$sql/patreon_user.sql", true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_tierchange', "$sql/patreon_tierchange.sql", true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_info', "$sql/patreon_info.sql", true ] );
 		return true;
 	}    
 	

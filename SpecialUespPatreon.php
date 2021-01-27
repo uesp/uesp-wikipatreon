@@ -8,11 +8,32 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 
 class SpecialUespPatreon extends SpecialPage {
 	
-	public $UESP_CAMPAIGN_ID = 2731208;
+	public $accessToken = "";
+	public $lastPatronUpdate = 0;
+	
+	public $inputAction = "";
+	public $inputOnlyActive = 0;
+	public $inputShowNewPeriod = 7;
+	public $inputHideTierIron = 0;
+	public $inputHideTierSteel = 0;
+	public $inputHideTierElven = 0;
+	public $inputHideTierOrcish = 0;
+	public $inputHideTierGlass = 0;
+	public $inputHideTierDaedric = 0;
+	public $inputHideTierOther = 0;
+	public $inputPatronIds = array();
+	
+	public $breadcrumb = array();
+	public $patrons = array();
+	public $tierChanges = array();
 	
 	
 	public function __construct() {
+		global $wgOut;
+		
 		parent::__construct('UespPatreon');
+		
+		$wgOut->addModules( 'ext.UespPatreon.modules' );
 	}
 	
 	
@@ -22,9 +43,9 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
-	public static function getLink($param, $query) {
+	public static function getLink($param = null, $query = null) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
-					
+		
 		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
 		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
@@ -34,14 +55,91 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	public function escapeHtml($html) {
+		return htmlspecialchars ($html);
+	}
+	
+	
 	public static function getAuthorizationLink() {
 		global $uespPatreonClientId;
-        global $uespPatreonClientSecret;
-        
-        $link = 'https://www.patreon.com/oauth2/authorize?response_type=code&client_id=' . $uespPatreonClientId;
- 		$link .= '&redirect_uri=' . SpecialUespPatreon::getLink("callback");
- 		
- 		return $link;
+		global $uespPatreonClientSecret;
+		
+		$link = 'https://www.patreon.com/oauth2/authorize?response_type=code&client_id=' . $uespPatreonClientId;
+		$link .= '&redirect_uri=' . SpecialUespPatreon::getLink("callback");
+		
+		return $link;
+	}
+	
+	
+	public function parseRequest() {
+		$req = $this->getRequest();
+		
+		$action = $req->getVal('action');
+		if ($action != null) $this->inputAction = $action;
+		
+		$showPeriod = $req->getVal('period');
+		
+		if ($showPeriod != null && $showPeriod != "") {
+			$this->inputShowNewPeriod = intval($showPeriod);
+			if ($this->inputShowNewPeriod <= 0) $this->inputShowNewPeriod = 1;
+			if ($this->inputShowNewPeriod > 365) $this->inputShowNewPeriod = 365;
+		}
+		
+		$onlyActive = $req->getVal('onlyactive');
+		if ($onlyActive != null) $this->inputOnlyActive = intval($onlyActive);
+		
+		$hideIron = $req->getVal('hideiron');
+		$hideSteel = $req->getVal('hidesteel');
+		$hideElven = $req->getVal('hideelven');
+		$hideOrcish = $req->getVal('hideorcish');
+		$hideGlass = $req->getVal('hideglass');
+		$hideDaedric = $req->getVal('hidedaedric');
+		$hideOther = $req->getVal('hideother');
+		
+		if ($hideIron != null) $this->inputHideTierIron = intval($hideIron);
+		if ($hideSteel != null) $this->inputHideTierSteel = intval($hideSteel);
+		if ($hideElven != null) $this->inputHideTierElven = intval($hideElven);
+		if ($hideOrcish != null) $this->inputHideTierOrcish = intval($hideOrcish);
+		if ($hideGlass != null) $this->inputHideTierGlass = intval($hideGlass);
+		if ($hideDaedric != null) $this->inputHideTierDaedric = intval($hideDaedric);
+		if ($hideOther != null) $this->inputHideTierOther = intval($hideOther);
+		
+		$patronIds = $req->getArray("patronids");
+		if ($patronIds != null) $this->inputPatronIds = $patronIds;
+		
+	}
+	
+	
+	public function loadInfo() {
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_info', '*', ['k' => 'last_update']);
+		$row = $res->fetchRow();
+		
+		if ($row != null) {
+			$this->lastPatronUpdate = intval($row['v']);
+		}
+		
+		return true;
+	}
+	
+	
+	public function loadAccessToken() {
+		
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_info', '*', ['k' => 'access_token']);
+		
+		$row = $res->fetchRow();
+		
+		if ($row == null) {
+			error_log("Patreon Access Token: Failed to load patreon_info: No rows returned!");
+			return false;
+		}
+		
+		$this->accessToken = $row['v'];
+		
+		return true;
 	}
 	
 	
@@ -54,11 +152,11 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		$db = wfGetDB(DB_SLAVE);
 		
-		$res = $db->select('patreon_user', '*', ['user_id' => $wgUser->getId()]);
+		$res = $db->select('patreon_user', '*', ['wikiuser_id' => $wgUser->getId()]);
 		if ($res->numRows() == 0) return null;
 		
 		$row = $res->fetchRow();
-		if ($row == null) return -1;
+		if ($row == null) return null;
 		
 		$cachedUser = $row;
 		return $cachedUser;
@@ -74,15 +172,15 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		$db = wfGetDB(DB_SLAVE);
 		
-		$res = $db->select('patreon_user', 'user_patreonid', ['user_id' => $wgUser->getId()]);
+		$res = $db->select('patreon_user', 'patreon_id', ['wikiuser_id' => $wgUser->getId()]);
 		if ($res->numRows() == 0) return -1;
 		
 		$row = $res->fetchRow();
 		if ($row == null) return -1;
-		if ($row['user_patreonid'] == null) return -1;
+		if ($row['patreon_id'] == null) return -1;
 		
-		$cachedId = $row['user_patreonid'];
-		return $row['user_patreonid'];
+		$cachedId = $row['patreon_id'];
+		return $row['patreon_id'];
 	}
 	
 	
@@ -92,209 +190,140 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		//error_log("IsPayingUser: " . $patreon['has_donated']);
 		
-		return $patreon['has_donated'] > 0;
+		return ($patreon['lifetimePledgeCents'] > 0 || $patreon['has_donated'] > 0);
 	}
 	
 	
-	public static function refreshTokens() {
+	public static function refreshPatreonTokens() {
 		global $uespPatreonClientId;
-        global $uespPatreonClientSecret;
-        global $wgOut;
-        
+		global $uespPatreonClientSecret;
+		global $wgOut;
+		
 		require_once('Patreon/API.php');
-        require_once('Patreon/OAuth2.php');
-        
-        $patron = SpecialUespPatreon::loadPatreonUser();
-        if ($patron == null) return false;
-                
-	    $oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
-        $tokens = $oauth->refresh_token($patron['refresh_token']);
-        
-		SpecialUespPatreon::updatePatreonTokens($patron, $tokens);
+		require_once('Patreon/OAuth2.php');
+		
+		$patron = SpecialUespPatreon::loadPatreonUser();
+		if ($patron == null) return false;
+		
+		$oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
+		$tokens = $oauth->refresh_token($patron['refresh_token']);
+		
+		SpecialUespPatreon::savePatreonTokens($patron, $tokens);
 		
 		return true;
-	}
-	
-
-	public function execute( $parameter ){
-		$this->setHeaders();
-		
-		switch($parameter){
-			case 'redirect':
-				$this->redirect();
-				break;
-			case 'callback':
-			case 'callback2':
-				$this->handleCallback();
-				break;
-			case 'unlink':
-				$this->unlink();
-				break;
-			case 'update':
-				$this->update();
-				break;
-			case 'list':
-			case 'view':
-				$this->showList();
-				break;
-			case 'shownew':
-			case 'new':
-				$this->showNew();
-				break;
-			case 'link':
-				$this->showLink();
-				break;
-			default:
-				$this->_default();
-				break;
-		}
 	}
 	
 	
 	private function hasPermission($permission) {
 		
 			/* Admins have all permissions */
-		if (in_array( 'sysop', $this->getUser()->getEffectiveGroups() )) return true;
-  		
-		$permission = "patreon_" . $permission;
+		//if (in_array( 'sysop', $this->getUser()->getEffectiveGroups() )) return true;
 		
+		$permission = "patreon-" . $permission;
+		
+		//return in_array( $permission, $this->getUser()->getEffectiveGroups() );
 		return $this->getUser()->isAllowed($permission);
 	}
 	
 	
-	private function loadPatronData($onlyActive = true, $includeFollowers = false) {
-		global $uespPatreonCreatorAccessToken;
-		global $uespPatreonCreatorAccessToken2;
+	private function loadPatronDataPatreon($onlyActive = true, $includeFollowers = false) {
 		global $wgOut;
 		
 		require_once('Patreon/API2.php');
 		require_once('Patreon/OAuth2.php');
 		
-		$api = new Patreon\API($uespPatreonCreatorAccessToken2);
+		if (!$this->loadAccessToken()) return array();
 		
-		$response = $api->fetch_page_of_members_from_campaign($this->UESP_CAMPAIGN_ID, 2000, null);
+		$api = new Patreon\API($this->accessToken);
+		
+		$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 2000, null);
 		
 		//$raw = print_r($response, true);
-		//$wgOut->addHTML("<pre>$raw</pre>");
+		//$wgOut->addHTML("Response: <pre>$raw</pre>");
 		
-		$patrons = $this->parsePatronData($response, $onlyActive, $includeFollowers);
+		$patrons = UespPatreonCommon::parsePatronData($response, $onlyActive, $includeFollowers);
+		$this->patrons = $patrons;
 		
-		return $patrons;
+		return $this->patrons;
 	}
 	
 	
-	private function parsePatronData($responseData, $onlyActive, $includeFollowers) {
-		$result = array();
+	private function loadPatronDataDB($onlyActive = true, $includeFollowers = false) {
+		$db = wfGetDB(DB_SLAVE);
 		
-		if ($responseData == null || count($responseData) == 0) return $result;
+		$res = $db->select('patreon_user', '*');
+		if ($res->numRows() == 0) return array();
 		
-		$data = $responseData['data'];
-		$included = $responseData['included'];
-		$meta = $responseData['meta'];
+		$patrons = array();
 		
-		if ($data == null || $included == null) return $result;
-		
-		$addresses = array();
-		$tiers = array();
-		$users = array();
-		
-		foreach ($included as $row) {
-			$id = $row['id'];
-			$type = $row['type'];
-			$attr = $row['attributes'];
+		while ($row = $res->fetchRow()) {
+			if ($row['name'] == "") continue;
+			if ($onlyActive && $row['status'] != 'active_patron') continue;
+			if ($this->inputHideTierIron && $row['tier'] == 'Iron') continue;
+			if ($this->inputHideTierSteel && $row['tier'] == 'Steel') continue;
+			if ($this->inputHideTierElven && $row['tier'] == 'Elven') continue;
+			if ($this->inputHideTierOrcish && $row['tier'] == 'Orcish') continue;
+			if ($this->inputHideTierGlass && $row['tier'] == 'Glass') continue;
+			if ($this->inputHideTierDaedric && $row['tier'] == 'Daedric') continue;
+			if ($this->inputHideTierOther && $row['tier'] == '') continue;
 			
-			if ($id == null || $type == null || $attr == null) continue;
-			
-			if ($type == "tier") {
-				$tiers[$id] = $attr;
-			}
-			else if ($type == "address") {
-				$addresses[$id] = $attr;
-			}
-			else if ($type == "user") {
-				$users[$id] = $attr;
-			}
-			else {
-					//? 
-			}
+			$patrons[] = $row;
 		}
 		
-		foreach ($data as $row) {
-			$attr = $row['attributes'];
-			$rel = $row['relationships'];
-			
-			if ($attr == null) continue;
-			
-			if ($onlyActive && $attr['patron_status'] != "active_patron") continue;
-			if (!$includeFollowers && $attr['patron_status'] == "") continue;
-			
-			$patron = $attr;
-			$patron['tier'] = "None";
-			$patron['address'] = "Unknown";
-			$patron['discord'] = "Unknown";
-			
-			if ($rel['address'] != null && $rel['address']['data'] != null) {
-				$id = $rel['address']['data']['id'];
-				$patron['address'] = $addresses[$id];
-				if ($patron['address']== null) $patron['address'] = "Unknown";
-			}
-			
-			if ($rel['currently_entitled_tiers'] != null && $rel['currently_entitled_tiers']['data'] != null && $rel['currently_entitled_tiers']['data'][0] != null) {
-				$id = $rel['currently_entitled_tiers']['data'][0]['id'];
-				
-				if ($tiers[$id] != null) {
-					$patron['tier'] = $tiers[$id]['title'];
-					if ($patron['tier']== null) $patron['tier'] = "Unknown";
-				}
-			}
-			
-			if ($rel['user'] != null && $rel['user']['data'] != null) {
-				$id = $rel['user']['data']['id'];
-				
-				if ($users[$id] != null && $users[$id]['social_connections'] != null && $users[$id]['social_connections']['discord'] != null) {
-					$patron['discord'] = $users[$id]['social_connections']['discord'];
-				}
-			}
-			
-			$result[] = $patron;
-		}
+		$this->patrons = $patrons;
+		usort($this->patrons, array("SpecialUespPatreon", "sortPatronsByStartDate"));
 		
-		usort($result, array("SpecialUespPatreon", "sortPatronsByStartDate"));
-		
-		return $result;
+		return $this->patrons;
 	}
 	
 	
-	private static function sortPatronsByStartDate($a, $b) {
-		return strcmp($a['pledge_relationship_start'], $b['pledge_relationship_start']);
+	public static function sortPatronsByStartDate($a, $b) {
+		return strcmp($a['startDate'], $b['startDate']);
+	}
+	
+	
+	public static function sortTierChangesByDate($a, $b) {
+		return strcmp($a['date'], $b['date']);
+	}
+	
+	
+	private function loadTierChanges() {
+		$db = wfGetDB(DB_SLAVE);
+		
+		$this->tierChanges = array();
+		
+		$res = $db->select(['patreon_tierchange', 'patreon_user'], '*', '', __METHOD__, [], [ 'patreon_user' => [ 'LEFT JOIN', 'patreon_tierchange.patreon_id = patreon_user.patreon_id']]);
+		if ($res->numRows() == 0) return $this->tierChanges;
+		
+		while ($row = $res->fetchRow()) {
+			$this->tierChanges[] = $row;
+		}
+		
+		usort($this->tierChanges, array("SpecialUespPatreon", "sortTierChangesByDate"));
+		
+		return $this->tierChanges;
 	}
 	
 	
 	private function showNew() {
 		global $wgOut;
 		
-		$req = $this->getRequest();
-		$showPeriod = $req->getVal('period');
-		
-		if ($showPeriod == "" || $showPeriod == null) $showPeriod = 7;
-		if ($showPeriod <= 0) $showPeriod = 1;
-		if ($showPeriod > 365) $showPeriod = 365;
-		
-		$periodName = "Last $showPeriod Days";
-		
-		if ($showPeriod == 7)
-			$periodName = "Last Week";
-		elseif ($showPeriod == 30 || $showPeriod == 31)
-			$periodName = "Last Month";
-		elseif ($showPeriod == 365)
-			$periodName = "Last Year";
-		
 		if (!$this->hasPermission("view")) {
 			$wgOut->addHTML("Permission Denied!");
 			return;
 		}
 		
-		$patrons = $this->loadPatronData(false, false);
+		$periodName = "Last {$this->inputShowNewPeriod} Days";
+		
+		if ($this->inputShowNewPeriod == 7)
+			$periodName = "Last Week";
+		elseif ($this->inputShowNewPeriod == 30 || $this->inputShowNewPeriod == 31)
+			$periodName = "Last Month";
+		elseif ($this->inputShowNewPeriod == 365)
+			$periodName = "Last Year";
+		
+		$this->loadInfo();
+		$patrons = $this->loadPatronDataDB($this->inputOnlyActive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
@@ -303,39 +332,178 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		$newPatrons = array();
 		
-		$now = new DateTime("now");
+		$now = time();
 		
 		foreach ($patrons as $patron) {
-			$startDateStr = $patron['pledge_relationship_start'];
+			$startDateStr = $patron['startDate'];
+			$timestamp = strtotime( $startDateStr );
 			
-				//2020-02-22T00:31:24.967+00:00
-			$startDate = DateTime::createFromFormat("Y-m-d\TH:i:s??????????", $startDateStr);
-			if ($startDate === false) continue;
-			
-			$interval = $startDate->diff($now);
-			$days = $interval->format("%a");
-			if ($days > $showPeriod) continue;
+			$interval = $now - $timestamp;
+			$days = $interval / 86400;
+			if ($days > $this->inputShowNewPeriod) continue;
 			
 			$newPatrons[] = $patron;
 		}
 		
-		$homeLink = $viewLink = SpecialUespPatreon::getLink("");
-		$weekLink = $viewLink = SpecialUespPatreon::getLink("shownew", "period=7");
-		$week2Link = $viewLink = SpecialUespPatreon::getLink("shownew", "period=14");
-		$monthLink = $viewLink = SpecialUespPatreon::getLink("shownew", "period=31");
+		$homeLink = SpecialUespPatreon::getLink("");
+		$weekLink = SpecialUespPatreon::getLink("shownew", "period=7");
+		$week2Link = SpecialUespPatreon::getLink("shownew", "period=14");
+		$monthLink = SpecialUespPatreon::getLink("shownew", "period=31");
 		
-		$wgOut->addHTML("<a href='$homeLink'>Home</a> : ");
-		$wgOut->addHTML("<a href='$weekLink'>Last Week</a> : ");
-		$wgOut->addHTML("<a href='$week2Link'>Last 2 Weeks</a> : ");
-		$wgOut->addHTML("<a href='$monthLink'>Last Month</a> ");
+		$this->addBreadcrumb("Home", $homeLink);
+		$this->addBreadcrumb("Last Week", $weekLink);
+		$this->addBreadcrumb("Last 2 Weeks", $week2Link);
+		$this->addBreadcrumb("Last Month", $monthLink);
+		
+		$wgOut->addHTML($this->getBreadcrumbHtml());
 		$wgOut->addHTML("<p/>");
 		
 		$count = count($newPatrons);
-		$wgOut->addHTML("Showing $count new patrons in the $periodName...");
+		$wgOut->addHTML("Showing $count new patrons in the $periodName.");
+		
+		$lastUpdate = $this->getLastUpdateFormat();
+		$wgOut->addHTML(" Patron data last updated $lastUpdate ago. ");
 		
 		$this->outputPatronTable($newPatrons);
 	}
 	
+	
+	private function showTierChanges() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		$this->loadInfo();
+		$this->loadTierChanges();
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($this->tierChanges);
+		$wgOut->addHTML("Showing data for $count tier changes.");
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'>");
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Full Name</th>");
+		$wgOut->addHTML("<th>Old Tier</th>");
+		$wgOut->addHTML("<th>New Tier</th>");
+		$wgOut->addHTML("<th>Changed On</th>");
+		$wgOut->addHTML("</tr>");
+		
+		foreach ($this->tierChanges as $tierChange) {
+			$name = $this->escapeHtml($tierChange['name']);
+			$oldTier = $this->escapeHtml($tierChange['oldTier']);
+			$newTier = $this->escapeHtml($tierChange['newTier']);
+			$date = $this->escapeHtml($tierChange['date']);
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$name</td>");
+			$wgOut->addHTML("<td>$oldTier</td>");
+			$wgOut->addHTML("<td>$newTier</td>");
+			$wgOut->addHTML("<td>$date</td>");
+			$wgOut->addHTML("</tr>");
+		}
+		
+		$wgOut->addHTML("</table>");
+	}
+	
+	
+	private function getLastUpdateFormat() {
+		$lastUpdate = "";
+		$diffTime = round((time() - $this->lastPatronUpdate) / 60);
+		
+		if ($diffTime < 60)
+			$lastUpdate = "$diffTime minutes"; 
+		else if ($diffTime < 24*60) {
+			$diffTime = round($diffTime / 60); 
+			$lastUpdate = "$diffTime hours";
+		}
+		else {
+			$diffTime = round($diffTime / 60 / 24); 
+			$lastUpdate = "$diffTime days";
+		}
+		
+		return $lastUpdate;
+	}
+	
+	
+	private function getShowListParams($newParams = null) {
+		$params = "";
+		
+		$onlyActive = $this->inputOnlyActive;
+		if ($newParams && isset($newParams['onlyactive'])) $onlyActive = $newParams['onlyactive'];
+		
+		if ($onlyActive)
+			$params .= "onlyactive=1";
+		else
+			$params .= "onlyactive=0";
+		
+		$hideTierIron = $this->inputHideTierIron;
+		$hideTierSteel = $this->inputHideTierSteel;
+		$hideTierElven = $this->inputHideTierElven;
+		$hideTierOrcish = $this->inputHideTierOrcish;
+		$hideTierGlass = $this->inputHideTierGlass;
+		$hideTierDaedric = $this->inputHideTierDaedric;
+		$hideTierOther = $this->inputHideTierOther;
+		
+		if ($newParams && isset($newParams['hideiron'])) $hideTierIron = $newParams['hideiron'];
+		if ($newParams && isset($newParams['hidesteel'])) $hideTierSteel = $newParams['hidesteel'];
+		if ($newParams && isset($newParams['hideelven'])) $hideTierElven = $newParams['hideelven'];
+		if ($newParams && isset($newParams['hideorcish'])) $hideTierOrcish = $newParams['hideorcish'];
+		if ($newParams && isset($newParams['hideglass'])) $hideTierGlass = $newParams['hideglass'];
+		if ($newParams && isset($newParams['hidedaedric'])) $hideTierDaedric = $newParams['hidedaedric'];
+		if ($newParams && isset($newParams['hideother'])) $hideTierOther = $newParams['hideother'];
+		
+		if ($hideTierIron) $params .= "&hideiron=1";
+		if ($hideTierSteel) $params .= "&hidesteel=1";
+		if ($hideTierElven) $params .= "&hideelven=1";
+		if ($hideTierOrcish) $params .= "&hideorcish=1";
+		if ($hideTierGlass) $params .= "&hideglass=1";
+		if ($hideTierDaedric) $params .= "&hidedaedric=1";
+		if ($hideTierOther) $params .= "&hideother=1";
+		
+		return $params;
+	}
+	
+	
+	private function getShowListTierOptionHtml() {
+		$link = $this->getLink('list');
+		$html = "<form id='uesppatShowListTierForm' method='get' action='$link' onsubmit='uesppatOnShowTierSubmit()'>";
+		$html .= "<input type='hidden' name='onlyactive' value='{$this->inputOnlyActive}' />";
+		$html .= " Show ";
+		
+		$ironCheck = !$this->inputHideTierIron ? "checked" : "";
+		$steelCheck = !$this->inputHideTierSteel ? "checked" : "";
+		$elvenCheck = !$this->inputHideTierElven ? "checked" : "";
+		$orcishCheck = !$this->inputHideTierOrcish ? "checked" : "";
+		$glassCheck = !$this->inputHideTierGlass ? "checked" : "";
+		$daedricCheck = !$this->inputHideTierDaedric ? "checked" : "";
+		$otherCheck = !$this->inputHideTierOther ? "checked" : "";
+		
+		$html .= "<input type='checkbox' id='uesppat_showiron_hidden' name='hideiron' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showsteel_hidden' name='hidesteel' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showelven_hidden' name='hideelven' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showorcish_hidden' name='hideorcish' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showglass_hidden' name='hideglass' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showdaedric_hidden' name='hidedaedric' value='1' style='display: none;' />";
+		$html .= "<input type='checkbox' id='uesppat_showother_hidden' name='hideother' value='1' style='display: none;' />";
+		
+		$html .= "<input type='checkbox' id='uesppat_showiron' value='1' $ironCheck /> <label for='uesppat_showiron'>Iron</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showsteel' value='1' $steelCheck /> <label for='uesppat_showsteel'>Steel</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showelven' value='1' $elvenCheck /> <label for='uesppat_showelven'>Elven</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showorcish' value='1' $orcishCheck /> <label for='uesppat_shoorcish'>Orcish</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showglass' value='1' $glassCheck /> <label for='uesppat_showglass'>Glass</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showdaedric' value='1' $daedricCheck /> <label for='uesppat_showdaedric'>Daedric</label> &nbsp; ";
+		$html .= "<input type='checkbox' id='uesppat_showother' value='1' $otherCheck /> <label for='uesppat_showother'>Other</label> &nbsp; ";
+		$html .= "<input type='submit' value='Refresh' />";
+		$html .= "</form>";
+		return $html;
+	}
 	
 	private function showList() {
 		global $wgOut;
@@ -345,9 +513,20 @@ class SpecialUespPatreon extends SpecialPage {
 			return;
 		}
 		
-		//$wgOut->addHTML("Show all patrons/pledges:");
+		$this->addBreadcrumb("Home", $this->getLink());
 		
-		$patrons = $this->loadPatronData(false, false);
+		if ($this->inputOnlyActive)
+			$this->addBreadcrumb("All Patrons", $this->getLink("list", $this->getShowListParams(["onlyactive" => 0])));
+		else
+			$this->addBreadcrumb("Only Active", $this->getLink("list", $this->getShowListParams(["onlyactive" => 1])));
+		
+		$this->addBreadcrumb($this->getShowListTierOptionHtml());
+		
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$this->loadInfo();
+		$patrons = $this->loadPatronDataDB($this->inputOnlyActive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
@@ -355,12 +534,25 @@ class SpecialUespPatreon extends SpecialPage {
 		}
 		
 		$count = count($patrons);
-		$wgOut->addHTML("Showing data for $count patrons...");
 		
-		//$raw = print_r($patrons, true);
-		//$wgOut->addHTML("<pre>$raw</pre>");
+		if ($this->inputOnlyActive)
+			$wgOut->addHTML("Showing data for $count active patrons.");
+		else
+			$wgOut->addHTML("Showing data for $count patrons.");
+		
+		$lastUpdate = $this->getLastUpdateFormat();
+		$wgOut->addHTML(" Patron data last updated $lastUpdate ago. ");
+		
+		$formLink = $this->getLink();
+		$wgOut->addHTML("<form method='post' id='uesppatPatronTableForm' action='$formLink'>");
+		$wgOut->addHTML("With Selected Patrons: ");
+		$wgOut->addHTML("<input type='hidden' id='uesppatPatronTableAction' name='action' value='' />");
+		$wgOut->addHTML("<input type='button' value='Create Shipment' onclick='uesppatOnCreateShipmentButton();'/>");
+		
 		
 		$this->outputPatronTable($patrons);
+		
+		$wgOut->addHTML("</form>");
 	}
 	
 	
@@ -370,30 +562,33 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'>");
 		
 		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th class='unsortable'><input id='uesppatPatronTableHeaderCheckbox' type='checkbox' value='0' /></th>");
 		$wgOut->addHTML("<th>Full Name</th>");
 		$wgOut->addHTML("<th>Tier</th>");
 		$wgOut->addHTML("<th>Status</th>");
 		$wgOut->addHTML("<th>Pledge Type</th>");
 		$wgOut->addHTML("<th>Lifetime $</th>");
 		$wgOut->addHTML("<th>Patron Since</th>");
+		$wgOut->addHTML("<th>Has Address</th>");
 		$wgOut->addHTML("</tr>");
 		
 		foreach ($patrons as $patron) {
-			$name = $patron['full_name'];
-			$tier = $patron['tier'];
-			$status = $patron['patron_status'];
-			$lifetime = '$' . number_format($patron['lifetime_support_cents'] / 100, 2);
-			$pledgeType = $patron['pledge_cadence'];
-			$pledgeStart = $patron['pledge_relationship_start'];
-			
-			$pledgeStart = preg_replace('/(.*)T(.*)\+.*/', '\1 \2', $pledgeStart);
+			$patronId = $patron['patreon_id'];
+			$name = $this->escapeHtml($patron['name']);
+			$tier = $this->escapeHtml($patron['tier']);
+			$status = $this->escapeHtml($patron['status']);
+			$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
+			$pledgeType = $patron['pledgeCadence'];
+			$pledgeStart = $patron['startDate'];
 			
 			if ($pledgeType == 1)
 				$pledgeType = "Monthly";
 			else if ($pledgeType == 12)
 				$pledgeType = "Annual";
-			else
+			else {
+				$pledgeType = $this->escapeHtml($pledgeType);
 				$pledgeType = "Every $pledgeType Months";
+			}
 			
 			if ($status == "active_patron")
 				$status = "Active";
@@ -402,87 +597,24 @@ class SpecialUespPatreon extends SpecialPage {
 			elseif ($status == "former_patron")
 				$status = "Former";
 			
+			$hasAddress = "Yes";
+			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") $hasAddress = "NO";
+			
+			$checkbox = "<input type='checkbox' name='patronids[]' class='uesppatPatronRowCheckbox' value='$patronId'/>";
+			
 			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$checkbox</td>");
 			$wgOut->addHTML("<td>$name</td>");
 			$wgOut->addHTML("<td>$tier</td>");
 			$wgOut->addHTML("<td>$status</td>");
 			$wgOut->addHTML("<td>$pledgeType</td>");
 			$wgOut->addHTML("<td>$lifetime</td>");
 			$wgOut->addHTML("<td>$pledgeStart</td>");
+			$wgOut->addHTML("<td>$hasAddress</td>");
 			$wgOut->addHTML("</tr>");
 		}
 		
 		$wgOut->addHTML("</table>");
-	}
-	
-	
-	private function update() {
-		global $uespPatreonWebHookSecret;
-		
-		$event = $_SERVER['HTTP_X_PATREON_EVENT'];
-		$sig = $_SERVER['HTTP_X_PATREON_SIGNATURE'];
-		
-		$post = file_get_contents("php://input");
-		$postData = json_decode($post, true);
-		
-		$compareSig = hash_hmac('md5', $post, $uespPatreonWebHookSecret);
-		
-		//error_log("Event: $event");
-		//error_log("Signature: $sig / $compareSig");
-		//error_log("Post: $post");
-		
-		if ($sig != $compareSig) {
-			error_log("SpecialUespPatreon::update() -- Hash signatures do not match!");
-			return false;
-		}
-		
-		$data = $postData['data'];
-		if ($data == null) return false;
-		
-		$attributes = $data['attributes'];
-		if ($attributes == null) return false;
-		
-		$relationships = $data['relationships'];
-		if ($relationships == null) return false;
-		
-		$user = $relationships['user'];
-		if ($user == null) return false;
-		
-		$userData = $user['data'];
-		if ($userData == null) return false;
-		
-		$patreonId = $userData['id'];
-		if ($patreonId == null) return false;
-		
-		if ($event == "pledge:create" || $event == "pledge:update" ||
-			$event == "members:pledge:create" || $event == "members:pledge:update") 
-		{ 
-			$lifetimeSupport = $attributes['lifetime_support_cents'];
-			$pledgeAmount = $attributes['pledge_amount_cents'];
-			//error_log("Updating Event: $lifetimeSupport / $pledgeAmount");
-		}		
-		else
-		{
-			//error_log("Unknown Event");
-			return false;
-		}
-		
-		if ($lifetimeSupport > 0 || $pledgeAmount > 0) {
-			//error_log("Updating Has Donated for user $patreonId");
-			SpecialUespPatreon::updatePatreonHasDonated($patreonId, 1);
-		}
-		
-		return true;
-	}
-	
-	
-	private static function updatePatreonHasDonated($patreonId, $value) {
-		$db = wfGetDB(DB_MASTER);
-		
-		$db->update('patreon_user', ['has_donated' => $value],
-				[ 'user_patreonid' => $patreonId ]);
-		
-		return true;
 	}
 	
 	
@@ -498,32 +630,29 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	private function handleCallback() {
 		global $uespPatreonClientId;
-        global $uespPatreonClientSecret;
-        global $wgOut;
-        
+		global $uespPatreonClientSecret;
+		global $wgOut;
+		
 		require_once('Patreon/API.php');
-        require_once('Patreon/OAuth2.php');
-        
-	    $oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
-        $tokens = $oauth->get_tokens($_GET['code'], SpecialUespPatreon::getLink("callback"));
-        $accessToken = $tokens['access_token'];
-        $refreshToken = $tokens['refresh_token'];
-        
-        //$json = json_encode($tokens);
-        //error_log($json);
-        
-        $api = new Patreon\API($accessToken);
-        $patronResponse = $api->fetch_user();
-        $patron = $patronResponse['data'];
-        
-		$user = $this->addPatreonUser($patron, $tokens);
+		require_once('Patreon/OAuth2.php');
+		
+		$oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
+		$tokens = $oauth->get_tokens($_GET['code'], SpecialUespPatreon::getLink("callback"));
+		$accessToken = $tokens['access_token'];
+		$refreshToken = $tokens['refresh_token'];
+		
+		$api = new Patreon\API($accessToken);
+		$patronResponse = $api->fetch_user();
+		$patron = $patronResponse['data'];
+		
+		$user = $this->updatePatreonUser($patron, $tokens);
 		
 		$wgOut->redirect( SpecialUespPatreon::getPreferenceLink() );
 		return true;
 	}
 	
 	
-	private function addPatreonUser($patron, $tokens) {
+	private function updatePatreonUser($patron, $tokens) {
 		global $wgUser;
 		
 		if (!$wgUser->isLoggedIn()) return false;
@@ -539,50 +668,67 @@ class SpecialUespPatreon extends SpecialPage {
 				
 				if ($pledgeData && count($pledgeData) > 0) {
 					$hasDonated = 1;
-				}					
+				}
 			}
 		}
-		
-		//$json = json_encode($patron);
-		//error_log($json);
 		
 		$db = wfGetDB(DB_MASTER);
 		
 		$expires = time() + $tokens['expires_in'];
-		//error_log("expires: " . time() . ":" . $tokens['expires_in'] . ":" . $expires);
 		
-		$db->delete('patreon_user', ['user_id' => $wgUser->getId()]);
-		$db->insert('patreon_user', ['user_patreonid' => $patron['id'], 
-				'user_id' => $wgUser->getId(), 
+		//$db->delete('patreon_user', ['wikiuser_id' => $wgUser->getId()]);
+		/*
+		$db->insert('patreon_user', ['patreon_id' => $patron['id'], 
+				'wikiuser_id' => $wgUser->getId(), 
 				'token_expires' => wfTimestamp(TS_DB, $expires),
 				'access_token' => $tokens['access_token'],
 				'refresh_token' => $tokens['refresh_token'],
 				'has_donated' => $hasDonated
-		]);
+		]) //*/
+		
+		$newValues = array(
+				'patreon_id' => $patron['id'], 
+				'wikiuser_id' => $wgUser->getId(), 
+				'token_expires' => wfTimestamp(TS_DB, $expires),
+				'access_token' => $tokens['access_token'],
+				'refresh_token' => $tokens['refresh_token'],
+		);
+		$updateValues = array(
+				'wikiuser_id' => $wgUser->getId(), 
+				'token_expires' => wfTimestamp(TS_DB, $expires),
+				'access_token' => $tokens['access_token'],
+				'refresh_token' => $tokens['refresh_token'],
+		);
+		
+		$db->upsert('patreon_user', $newValues, array("patreon_id"), $updateValues);
 		
 		return true;
 	}
 	
 	
-	private function deletePatreonUser() {
+	private function unlinkPatreonUser() {
 		global $wgUser;
 		
 		if (!$wgUser->isLoggedIn()) return false;
 		
 		$db = wfGetDB(DB_MASTER);
 		
-		$db->delete('patreon_user', ['user_id' => $wgUser->getId()]);
+		//$db->delete('patreon_user', ['user_id' => $wgUser->getId()]);
+		$db->update('patreon_user', ['wikiuser_id' => 0], ['wikiuser_id' => $wgUser->getId()]);
+		
 		return true;
 	}
 	
 	
-	private static function updatePatreonTokens($patron, $tokens) {
+	private static function savePatreonTokens($patron, $tokens) {
 		$db = wfGetDB(DB_MASTER);
+		
+		$expires = time() + $tokens['expires_in'];
 		
 		$db->update('patreon_user', ['token_expires' => wfTimestamp(TS_DB, $expires),
 				'access_token' => $tokens['access_token'],
 				'refresh_token' => $tokens['refresh_token'] ],
-				[ 'user_patreonid' => $patron['id'] ]);		
+				[ 'patreon_id' => $patron['id'] ]);
 		
 		return true;
 	}
@@ -591,7 +737,7 @@ class SpecialUespPatreon extends SpecialPage {
 	private function unlink() {
 		global $wgOut;
 		
-		$this->deletePatreonUser();
+		$this->unlinkPatreonUser();
 		
 		$wgOut->redirect( SpecialUespPatreon::getPreferenceLink() );
 		return true;
@@ -605,7 +751,12 @@ class SpecialUespPatreon extends SpecialPage {
 			$wgOut->addHTML("You must log into the Wiki in order to link your Patreon account!");
 			return;
 		}
-
+		
+		if (!$this->hasPermission("link")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
 		$patreonId = SpecialUespPatreon::loadPatreonUserId();
 		
 		if ($patreonId <= 0) 
@@ -637,10 +788,12 @@ class SpecialUespPatreon extends SpecialPage {
 		$viewLink = SpecialUespPatreon::getLink("list");
 		$linkLink = SpecialUespPatreon::getLink("link");
 		$newLink = SpecialUespPatreon::getLink("shownew");
+		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><a href='$viewLink'>View Current Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
 		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
 		$wgOut->addHTML("</ul>");
 		
@@ -648,8 +801,94 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function addBreadcrumb($title, $link = null) {
+		$newCrumb = array();
+		$newCrumb['title'] = $title;
+		$newCrumb['link'] = $link;
+		$this->breadcrumb[] = $newCrumb;
+	}
+	
+	
+	private function getBreadcrumbHtml() {
+		$html = "<div class='uesppatBreadcrumb'>";
+		$index = 0;
+		
+		foreach ($this->breadcrumb as $breadcrumb) {
+			if ($index != 0) $html .= " : ";
+			
+			$link = $breadcrumb['link'];
+			$title = $breadcrumb['title'];
+			
+			if ($link == null)
+				$html .= "$title";
+			else
+				$html .= "<a href='$link'>$title</a>";
+			
+			++$index;
+		}
+		
+		$html .= "</div>";
+		return $html;
+	}
+	
+	
+	private function showCreateShipment() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("shipment")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$count = count($this->inputPatronIds);
+		$wgOut->addHTML("Create shipment. Found $count input ids!");
+	}
+	
+	
 	private function _default() {
 		return $this->showMainMenu();
+	}
+	
+	
+	public function execute( $parameter ){
+		
+		$this->setHeaders();
+		$this->parseRequest();
+		
+		if ($parameter == '') $parameter = $this->inputAction;
+		
+		switch($parameter){
+			case 'redirect':
+				$this->redirect();
+				break;
+			case 'callback':
+			case 'callback2':
+				$this->handleCallback();
+				break;
+			case 'unlink':
+				$this->unlink();
+				break;
+			case 'list':
+			case 'view':
+				$this->showList();
+				break;
+			case 'shownew':
+			case 'new':
+				$this->showNew();
+				break;
+			case 'tierchange':
+				$this->showTierChanges();
+				break;
+			case 'link':
+				$this->showLink();
+				break;
+			case 'createship':
+				$this->showCreateShipment();
+				break;
+			default:
+				$this->_default();
+				break;
+		}
 	}
 	
 };

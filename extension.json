@@ -8,6 +8,7 @@
 	"license-name": "MIT",
 	"type": "other",
 	"AutoloadClasses": {
+		"UespPatreonCommon": "UespPatreonCommon.php",
 		"UespPatreonHooks": "UespPatreonHooks.php",
 		"SpecialUespPatreon": "SpecialUespPatreon.php"
 	},
@@ -18,7 +19,7 @@
 		"GetPreferences": [
 			"UespPatreonHooks::getPreferences"
 		],
-        "LoadExtensionSchemaUpdates": [
+		"LoadExtensionSchemaUpdates": [
 			"UespPatreonHooks::onLoadExtensionSchemaUpdates"
 		]
 	},
@@ -29,6 +30,48 @@
 		"UespPatreon": [
 			"i18n"
 		]
+	},
+	"GroupPermissions": {
+		"*" : {
+			"patreon-link" : true,
+			"patreon-view" : false,
+			"patreon-edit" : false,
+			"patreon-shipment" : false
+		},
+		"sysop" : {
+			"patreon-link" : true,
+			"patreon-view" : true,
+			"patreon-edit" : false,
+			"patreon-shipment" : false
+		},
+		"patreon-viewer" : {
+			"patreon-link" : true,
+			"patreon-view" : true,
+			"patreon-edit" : false,
+			"patreon-shipment" : false
+		},
+		"patreon-editor" : {
+			"patreon-link" : true,
+			"patreon-view" : true,
+			"patreon-edit" : true,
+			"patreon-shipment" : true
+		}
+	},
+	"ResourceModules" : {
+		"ext.UespPatreon.modules": {
+			"localBasePath": "modules",
+			"remoteExtPath": "UespPatreon/modules",
+			"styles": [
+				"uespPatreon.css"
+			],
+			"scripts": [
+				"uespPatreon.js"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
 	},
 	"manifest_version": 1
 }

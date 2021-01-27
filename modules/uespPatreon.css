@@ -1,0 +1,12 @@
+.uesppatBreadcrumb { 
+	display: block;
+	font-size: 95%;
+}
+
+.uesppatBreadcrumb input {
+	font-size: 95%;
+}
+
+#uesppatShowListTierForm {
+	display: inline-block;
+}

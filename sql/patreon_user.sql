@@ -1,9 +1,27 @@
-CREATE TABLE /*$wgDBprefix*/patreon_user (
-  user_patreonid DECIMAL(25,0) unsigned NOT NULL PRIMARY KEY,
-  user_id int(10) unsigned NOT NULL,
+CREATE TABLE /*$wgDBprefix*/patreon_user2 (
+  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  patreon_id DECIMAL(25,0) unsigned NOT NULL,
+  wikiuser_id int(10) unsigned NOT NULL,
   access_token TINYTEXT NOT NULL,
   refresh_token TINYTEXT NOT NULL,
   token_expires TIMESTAMP NOT NULL,
-  has_donated TINYINT NOT NULL DEFAULT 0,
-  KEY(user_id)
+  name TINYTEXT NOT NULL,
+  email TINYTEXT NOT NULL,
+  discord TINYTEXT NOT NULL,
+  tier TINYTEXT NOT NULL,
+  status TINYTEXT NOT NULL,
+  pledgeCadence TINYTEXT NOT NULL,
+  note MEDIUMTEXT NOT NULL,
+  lifetimePledgeCents INT(10) UNSIGNED NOT NULL DEFAULT 0,
+  startDate DATETIME NOT NULL,
+  addressName TINYTEXT NOT NULL,
+  addressLine1 TINYTEXT NOT NULL,
+  addressLine2 TINYTEXT NOT NULL,
+  addressCity TINYTEXT NOT NULL,
+  addressState TINYTEXT NOT NULL,
+  addressZip TINYTEXT NOT NULL,
+  addressCountry TINYTEXT NOT NULL,
+  addressPhone TINYTEXT NOT NULL,
+  KEY(patreon_id),
+  KEY(wikiuser_id)
 ) /*$wgDBTableOptions*/;
