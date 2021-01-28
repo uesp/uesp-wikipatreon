@@ -1,4 +1,4 @@
-CREATE TABLE /*$wgDBprefix*/patreon_user2 (
+CREATE TABLE /*$wgDBprefix*/patreon_user (
   id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   patreon_id DECIMAL(25,0) unsigned NOT NULL,
   wikiuser_id int(10) unsigned NOT NULL,

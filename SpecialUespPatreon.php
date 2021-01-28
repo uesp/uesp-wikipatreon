@@ -10,6 +10,16 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
+	public $orderSuffix = "00";
+	public $orderIndex = array( "Iron" => 1, "Steel" => 1, "Elven" => 1, "Orcish" => 1, "Glass" => 1, "Daedric" => 1, "Other" => 1);
+	public $orderSku = array(
+			"Iron" => "UESPIron{suffix}",
+			"Steel" => "UESPSteel{suffix}",
+			"Elven" => "UESPElven{suffix}",
+			"Orcish" => "UESPOrcish{suffix}{shirtsize}",
+			"Glass" => "UESPOrcish{suffix}{shirtsize}",
+			"Daedric" => "UESPOrcish{suffix}{shirtsize}",
+			"Other" => "UESPOther{suffix}");
 	
 	public $inputAction = "";
 	public $inputOnlyActive = 0;
@@ -22,10 +32,12 @@ class SpecialUespPatreon extends SpecialPage {
 	public $inputHideTierDaedric = 0;
 	public $inputHideTierOther = 0;
 	public $inputPatronIds = array();
+	public $inputShowOnlyUnprocessed = 0;
 	
 	public $breadcrumb = array();
 	public $patrons = array();
 	public $tierChanges = array();
+	public $shipments = array();
 	
 	
 	public function __construct() {
@@ -71,6 +83,18 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function makeOrderSku($patron) {
+		
+		$orderSku = $this->orderSku[$patron['tier']];
+		if ($orderSku == null) $orderSku = "UESPOther{suffix}";
+		
+		$orderSku = str_replace("{suffix}", $this->orderSuffix, $orderSku);
+		$orderSku = str_replace("{shirtsize}", "?", $orderSku);
+		
+		return $orderSku;
+	}
+	
+	
 	public function parseRequest() {
 		$req = $this->getRequest();
 		
@@ -84,6 +108,9 @@ class SpecialUespPatreon extends SpecialPage {
 			if ($this->inputShowNewPeriod <= 0) $this->inputShowNewPeriod = 1;
 			if ($this->inputShowNewPeriod > 365) $this->inputShowNewPeriod = 365;
 		}
+		
+		$onlyUnprocessed = $req->getVal('onlyunprocess');
+		if ($onlyUnprocessed != null) $this->inputShowOnlyUnprocessed = intval($onlyUnprocessed);
 		
 		$onlyActive = $req->getVal('onlyactive');
 		if ($onlyActive != null) $this->inputOnlyActive = intval($onlyActive);
@@ -111,33 +138,65 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	
 	public function loadInfo() {
+		
 		$db = wfGetDB(DB_SLAVE);
 		
-		$res = $db->select('patreon_info', '*', ['k' => 'last_update']);
-		$row = $res->fetchRow();
+		$res = $db->select('patreon_info', '*');
 		
-		if ($row != null) {
-			$this->lastPatronUpdate = intval($row['v']);
+		while ($row = $res->fetchRow()) {
+			
+			if ($row['k'] == 'last_update') 
+				$this->lastPatronUpdate = intval($row['v']);
+			elseif ($row['k'] == 'access_token') 
+				$this->accessToken = $row['v'];
+			elseif ($row['k'] == 'orderSuffix') 
+				$this->orderSuffix = $row['v'];
+			elseif ($row['k'] == 'orderIndex_Iron') 
+				$this->orderIndex['Iron'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Steel') 
+				$this->orderIndex['Steel'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Elven') 
+				$this->orderIndex['Elven'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Orcish') 
+				$this->orderIndex['Orcish'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Glass') 
+				$this->orderIndex['Glass'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Daedric') 
+				$this->orderIndex['Daedric'] = intval($row['v']);
+			elseif ($row['k'] == 'orderIndex_Other') 
+				$this->orderIndex['Other'] = intval($row['v']);
+			elseif ($row['k'] == 'orderSku_Iron') 
+				$this->orderSku['Iron'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Steel') 
+				$this->orderSku['Steel'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Elven') 
+				$this->orderSku['Elven'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Orcish') 
+				$this->orderSku['Orcish'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Glass') 
+				$this->orderSku['Glass'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Daedric') 
+				$this->orderSku['Daedric'] = $row['v'];
+			elseif ($row['k'] == 'orderSku_Other') 
+				$this->orderSku['Other'] = $row['v'];
 		}
 		
 		return true;
 	}
 	
 	
-	public function loadAccessToken() {
-		
+	public function loadShipments() {
 		$db = wfGetDB(DB_SLAVE);
 		
-		$res = $db->select('patreon_info', '*', ['k' => 'access_token']);
+		if ($this->inputShowOnlyUnprocessed)
+			$res = $db->select('patreon_shipment', '*', 'isProcessed = 0');
+		else
+			$res = $db->select('patreon_shipment', '*');
 		
-		$row = $res->fetchRow();
-		
-		if ($row == null) {
-			error_log("Patreon Access Token: Failed to load patreon_info: No rows returned!");
-			return false;
+		while ($row = $res->fetchRow()) {
+			$id = intval($row['id']);
+			$this->shipments[$id] = $row;
 		}
-		
-		$this->accessToken = $row['v'];
 		
 		return true;
 	}
@@ -232,7 +291,7 @@ class SpecialUespPatreon extends SpecialPage {
 		require_once('Patreon/API2.php');
 		require_once('Patreon/OAuth2.php');
 		
-		if (!$this->loadAccessToken()) return array();
+		if (!$this->loadInfo()) return array();
 		
 		$api = new Patreon\API($this->accessToken);
 		
@@ -255,9 +314,13 @@ class SpecialUespPatreon extends SpecialPage {
 		if ($res->numRows() == 0) return array();
 		
 		$patrons = array();
+		$index = 1;
 		
 		while ($row = $res->fetchRow()) {
 			if ($row['name'] == "") continue;
+			
+			$id = intval($row['patreon_id']);
+			
 			if ($onlyActive && $row['status'] != 'active_patron') continue;
 			if ($this->inputHideTierIron && $row['tier'] == 'Iron') continue;
 			if ($this->inputHideTierSteel && $row['tier'] == 'Steel') continue;
@@ -267,11 +330,12 @@ class SpecialUespPatreon extends SpecialPage {
 			if ($this->inputHideTierDaedric && $row['tier'] == 'Daedric') continue;
 			if ($this->inputHideTierOther && $row['tier'] == '') continue;
 			
-			$patrons[] = $row;
+			if ($id == null || $id <= 0) $id = ++$index;
+			$patrons[$id] = $row;
 		}
 		
 		$this->patrons = $patrons;
-		usort($this->patrons, array("SpecialUespPatreon", "sortPatronsByStartDate"));
+		uasort($this->patrons, array("SpecialUespPatreon", "sortPatronsByStartDate"));
 		
 		return $this->patrons;
 	}
@@ -520,7 +584,9 @@ class SpecialUespPatreon extends SpecialPage {
 		else
 			$this->addBreadcrumb("Only Active", $this->getLink("list", $this->getShowListParams(["onlyactive" => 1])));
 		
-		$this->addBreadcrumb($this->getShowListTierOptionHtml());
+		if ($this->hasPermission("edit")) {
+			$this->addBreadcrumb($this->getShowListTierOptionHtml());
+		}
 		
 		$wgOut->addHTML($this->getBreadcrumbHtml());
 		$wgOut->addHTML("<p/>");
@@ -556,6 +622,15 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function makeNiceStatus ($status) {
+		
+		if ($status == "active_patron") return "Active";
+		if ($status == "declined_patron") return "Declined";
+		if ($status == "former_patron") return "Former";
+		return $this->escapeHtml($status);
+	}
+	
+	
 	private function outputPatronTable($patrons) {
 		global $wgOut;
 		
@@ -576,7 +651,7 @@ class SpecialUespPatreon extends SpecialPage {
 			$patronId = $patron['patreon_id'];
 			$name = $this->escapeHtml($patron['name']);
 			$tier = $this->escapeHtml($patron['tier']);
-			$status = $this->escapeHtml($patron['status']);
+			$status = $this->makeNiceStatus($patron['status']);
 			$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
 			$pledgeType = $patron['pledgeCadence'];
 			$pledgeStart = $patron['startDate'];
@@ -589,13 +664,6 @@ class SpecialUespPatreon extends SpecialPage {
 				$pledgeType = $this->escapeHtml($pledgeType);
 				$pledgeType = "Every $pledgeType Months";
 			}
-			
-			if ($status == "active_patron")
-				$status = "Active";
-			elseif ($status == "declined_patron")
-				$status = "Declined";
-			elseif ($status == "former_patron")
-				$status = "Former";
 			
 			$hasAddress = "Yes";
 			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") $hasAddress = "NO";
@@ -795,6 +863,12 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
 		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
+		
+		if ($this->hasPermission("shipment")) {
+			$shipLink = SpecialUespPatreon::getLink("viewship");
+			$wgOut->addHTML("<li><a href='$shipLink'>View Shipments</a></li>");
+		}
+		
 		$wgOut->addHTML("</ul>");
 		
 		return true;
@@ -832,6 +906,243 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function createNewShipments() {
+		$index = 1;
+		
+		foreach ($this->inputPatronIds as $patronId) {
+			$patron = $this->patrons[$patronId];
+			
+			$shipment = array();
+			$shipment['id'] = $index++;
+			$shipment['__isnew'] = true;
+			
+			if ($patron == null) {
+				$shipment['__isbad'] = true;
+				$shipment['patreon_id'] = -1;
+				$shipment['name'] = "Unknown Patron #$patronId";
+				$shipment['email'] = "";
+				$shipment['tier'] = "";
+				$shipment['status'] = "Unknown";
+				$shipment['addressName'] = "";
+				$shipment['addressLine1'] = "";
+				$shipment['addressLine2'] = "";
+				$shipment['addressCity'] = "";
+				$shipment['addressState'] = "";
+				$shipment['addressZip'] = "";
+				$shipment['addressCountry'] = "";
+				$shipment['addressPhone'] = "";
+				
+				$shipment['orderNumber'] = "Other" . $this->orderSuffix . "-" . str_pad(strval($this->orderIndex['Other']++), 3, '0', STR_PAD_LEFT);
+				//$shipment['orderSku'] = "UESPOther" . $this->orderSuffix;
+				$shipment['orderSku'] = $this->makeOrderSku($patron);
+				$shipment['shipMethod'] = "";
+				
+			}
+			else {
+				$shipment['patreon_id'] = $patron['patreon_id'];;
+				$shipment['name'] = $patron['name'];
+				$shipment['email'] = $patron['email'];
+				$shipment['tier'] = $patron['tier'];
+				$shipment['status'] = $patron['status'];
+				$shipment['addressName'] = $patron['addressName'];
+				$shipment['addressLine1'] = $patron['addressLine1'];
+				$shipment['addressLine2'] = $patron['addressLine2'];
+				$shipment['addressCity'] = $patron['addressCity'];
+				$shipment['addressState'] = $patron['addressState'];
+				$shipment['addressZip'] = $patron['addressZip'];
+				$shipment['addressCountry'] = $patron['addressCountry'];
+				$shipment['addressPhone'] = $patron['addressPhone'];
+				
+				$shipment['orderNumber'] = $patron['tier']. $this->orderSuffix . "-" . str_pad(strval($this->orderIndex[$patron['tier']]++), 3, '0', STR_PAD_LEFT);
+				//$shipment['orderSku'] = "UESP" . $patron['tier'] . $this->orderSuffix;
+				$shipment['orderSku'] = $this->makeOrderSku($patron);
+				$shipment['shipMethod'] = "";
+				
+				if ($shipment['addressName'] == "" || $shipment['addressLine1'] == "" || $shipment['addressCountry'] == "" || $shipment['tier'] == "") $shipment['__isbad'] = true;
+			}
+			
+			$this->shipments[] = $shipment;
+		}
+		
+	}
+	
+	
+	private function showShipments() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("shipment")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		$this->loadShipments();
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Show All", $this->getLink('viewship'));
+		$this->addBreadcrumb("Show Unprocessed", $this->getLink('viewship', 'onlyunprocess=1'));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($this->shipments);
+		
+		if ($this->inputShowOnlyUnprocessed)
+			$wgOut->addHTML("Showing $count unprocessed shipments.");
+		else
+			$wgOut->addHTML("Showing $count shipments.");
+		
+		$this->outputShipmentTable();
+		
+		return true;
+	}
+	
+	
+	private function outputShipmentTable() {
+		global $wgOut;
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatViewShipments'>");
+		$wgOut->addHTML("<thead><tr>");
+		$wgOut->addHTML("<th>#</th>");
+		$wgOut->addHTML("<th class='unsortable'>Process</th>");
+		$wgOut->addHTML("<th>Created On</th>");
+		$wgOut->addHTML("<th>Order #</th>");
+		$wgOut->addHTML("<th>SKU</th>");
+		$wgOut->addHTML("<th>Ship Method</th>");
+		$wgOut->addHTML("<th>Addressee</th>");
+		$wgOut->addHTML("<th>Line 1</th>");
+		$wgOut->addHTML("<th>Line 2</th>");
+		$wgOut->addHTML("<th>City</th>");
+		$wgOut->addHTML("<th>State</th>");
+		$wgOut->addHTML("<th>Postal Code</th>");
+		$wgOut->addHTML("<th>Country</th>");
+		$wgOut->addHTML("<th>Email</th>");
+		$wgOut->addHTML("<th>Phone Number</th>");
+		$wgOut->addHTML("</tr></thead><tbody>");
+		$index = 1;
+		
+		foreach ($this->shipments as $shipment) {
+			$id = $shipment['id'];
+			
+			$isProcessed = intval($shipment['isProcessed']);
+			
+			$createDate = $this->escapeHtml($shipment['createDate']);
+			$orderNumber = $this->escapeHtml($shipment['orderNumber']);
+			$orderSku = $this->escapeHtml($shipment['orderSku']);
+			$shipMethod = $this->escapeHtml($shipment['shipMethod']);
+			$addressName = $this->escapeHtml($shipment['addressName']);
+			$addressLine1 = $this->escapeHtml($shipment['addressLine1']);
+			$addressLine2 = $this->escapeHtml($shipment['addressLine2']);
+			$addressCity = $this->escapeHtml($shipment['addressCity']);
+			$addressState = $this->escapeHtml($shipment['addressState']);
+			$addressZip = $this->escapeHtml($shipment['addressZip']);
+			$addressCountry = $this->escapeHtml($shipment['addressCountry']);
+			$addressPhone = $this->escapeHtml($shipment['addressPhone']);
+			$email = $this->escapeHtml($shipment['email']);
+			
+			if ($isProcessed)
+				$isProcessed = "Yes";
+			else
+				$isProcessed = "";
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$index</td>");
+			$wgOut->addHTML("<td>$isProcessed</td>");
+			$wgOut->addHTML("<td>$createDate</td>");
+			$wgOut->addHTML("<td>$orderNumber</td>");
+			$wgOut->addHTML("<td>$orderSku</td>");
+			$wgOut->addHTML("<td>$shipMethod</td>");
+			$wgOut->addHTML("<td>$addressName</td>");
+			$wgOut->addHTML("<td>$addressLine1</td>");
+			$wgOut->addHTML("<td>$addressLine2</td>");
+			$wgOut->addHTML("<td>$addressCity</td>");
+			$wgOut->addHTML("<td>$addressState</td>");
+			$wgOut->addHTML("<td>$addressZip</td>");
+			$wgOut->addHTML("<td>$addressCountry</td>");
+			$wgOut->addHTML("<td>$email</td>");
+			$wgOut->addHTML("<td>$addressPhone</td>");
+			$wgOut->addHTML("</tr>");
+			
+			++$index;
+		}
+		
+		$wgOut->addHTML("</tbody></table>");
+	}
+	
+	
+	private function saveNewShipment() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("shipment")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$req = $this->getRequest();
+		$patronIds = $req->getArray("patreon_id");
+		$orderNumbers = $req->getArray("orderNumber");
+		$orderSkus = $req->getArray("orderSku");
+		$shipMethods = $req->getArray("shipMethod");
+		$addressNames = $req->getArray("addressName");
+		$addressLine1s = $req->getArray("addressLine1");
+		$addressLine2s = $req->getArray("addressLine2");
+		$addressCities = $req->getArray("addressCity");
+		$addressStates = $req->getArray("addressState");
+		$addressZips = $req->getArray("addressZip");
+		$addressCountries = $req->getArray("addressCountry");
+		$emails = $req->getArray("email");
+		$addressPhones = $req->getArray("addressPhone");
+		
+		$db = wfGetDB(DB_MASTER);
+		$count = 0;
+		$errorCount = 0;
+		
+		foreach ($patronIds as $i => $patronId) {
+			$orderNumber = $orderNumbers[$i];
+			$orderSku = $orderSkus[$i];
+			$shipMethod = $shipMethods[$i];
+			$addressName = $addressNames[$i];
+			$addressLine1 = $addressLine1s[$i];
+			$addressLine2 = $addressLine2s[$i];
+			$addressCity = $addressCities[$i];
+			$addressState = $addressStates[$i];
+			$addressZip = $addressZips[$i];
+			$addressCountry = $addressCountries[$i];
+			$addressPhone = $addressPhones[$i];
+			$email = $emails[$i];
+			
+			$result = $db->insert("patreon_shipment", [
+					"patreon_id" => $patronId,
+					"orderNumber" => $orderNumber,
+					"orderSku" => $orderSku,
+					"shipMethod" => $shipMethod,
+					"addressName" => $addressName,
+					"addressLine1" => $addressLine1,
+					"addressLine2" => $addressLine2,
+					"addressCity" => $addressCity,
+					"addressState" => $addressState,
+					"addressZip" => $addressZip,
+					"addressCountry" => $addressCountry,
+					"addressPhone" => $addressPhone,
+					"email" => $email,
+					"isProcessed" => 0,
+			]);
+			
+			if ($result)
+				++$count;
+			else
+				++$errorCount;
+			
+		}
+		
+		$wgOut->addHTML("Saved $count new shipments with $errorCount errors!");
+		$wgOut->addHTML("<p/>");
+		$viewLink = $this->getLink("viewship");
+		$wgOut->addHTML("<a href='$viewLink'>View Shipments</a>");
+		
+		return true;
+	}
+	
+	
 	private function showCreateShipment() {
 		global $wgOut;
 		
@@ -840,8 +1151,115 @@ class SpecialUespPatreon extends SpecialPage {
 			return false;
 		}
 		
+		$this->loadInfo();
+		$this->loadPatronDataDB(false, false);
+		
+		$this->createNewShipments();
+		
 		$count = count($this->inputPatronIds);
-		$wgOut->addHTML("Create shipment. Found $count input ids!");
+		$wgOut->addHTML("Created new shipment with $count patrons! ");
+		$wgOut->addHTML("Edit below shipments as needed and save to update shipment data. Invalid shipments will not be saved. ");
+		
+		$formLink = $this->getLink("savenewshipment"); 
+		$wgOut->addHTML("<form method='post' id='uesppatSaveNewShipmentForm' action='$formLink' onsubmit='uesppatOnSaveNewShipments()'>");
+		$wgOut->addHTML("<input type='submit' value='Save Shipments'>");
+		$wgOut->addHTML("</form>");
+		
+		$this->outputCreateShipmentTable();
+	}
+	
+	
+	private function outputCreateShipmentTable() {
+		global $wgOut;
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatCreateShipments'>");
+		$wgOut->addHTML("<thead><tr>");
+		$wgOut->addHTML("<th>#</th>");
+		$wgOut->addHTML("<th>Name</th>");
+		$wgOut->addHTML("<th>Tier</th>");
+		$wgOut->addHTML("<th>Status</th>");
+		$wgOut->addHTML("<th>Order #</th>");
+		$wgOut->addHTML("<th>SKU</th>");
+		$wgOut->addHTML("<th>Ship Method</th>");
+		$wgOut->addHTML("<th>Addressee</th>");
+		$wgOut->addHTML("<th>Line 1</th>");
+		$wgOut->addHTML("<th>Line 2</th>");
+		$wgOut->addHTML("<th>City</th>");
+		$wgOut->addHTML("<th>State</th>");
+		$wgOut->addHTML("<th>Postal Code</th>");
+		$wgOut->addHTML("<th>Country</th>");
+		$wgOut->addHTML("<th>Email</th>");
+		$wgOut->addHTML("<th>Phone Number</th>");
+		$wgOut->addHTML("</tr></thead><tbody>");
+		$index = 1;
+		
+		foreach ($this->shipments as $shipment) {
+			$id = $shipment['id'];
+			$name = $this->escapeHtml($shipment['name']);
+			$email = $this->escapeHtml($shipment['email']);
+			$tier = $this->escapeHtml($shipment['tier']);
+			$patronId = $this->escapeHtml($shipment['patreon_id']);
+			$status = $this->makeNiceStatus($shipment['status']);
+			$addressName = $this->escapeHtml($shipment['addressName']);
+			$addressLine1 = $this->escapeHtml($shipment['addressLine1']);
+			$addressLine2 = $this->escapeHtml($shipment['addressLine2']);
+			$addressCity = $this->escapeHtml($shipment['addressCity']);
+			$addressState = $this->escapeHtml($shipment['addressState']);
+			$addressZip = $this->escapeHtml($shipment['addressZip']);
+			$addressCountry = $this->escapeHtml($shipment['addressCountry']);
+			$addressPhone = $this->escapeHtml($shipment['addressPhone']);
+			$orderNumber = $this->escapeHtml($shipment['orderNumber']);
+			$orderSku = $this->escapeHtml($shipment['orderSku']);
+			$shipMethod = $this->escapeHtml($shipment['shipMethod']);
+			
+			$class = "";
+			if ($shipment['__isbad']) $class = "uesppatBadShipment";
+			
+			$wgOut->addHTML("<tr class='$class' patronid='$patronId' shipmentid='$id'>");
+			$wgOut->addHTML("<td>$index</td>");
+			$wgOut->addHTML("<td>$name</td>");
+			$wgOut->addHTML("<td>$tier</td>");
+			$wgOut->addHTML("<td>$status</td>");
+			$wgOut->addHTML("<td>$orderNumber</td>");
+			$wgOut->addHTML("<td>$orderSku</td>");
+			$wgOut->addHTML("<td>$shipMethod</td>");
+			$wgOut->addHTML("<td>$addressName</td>");
+			$wgOut->addHTML("<td>$addressLine1</td>");
+			$wgOut->addHTML("<td>$addressLine2</td>");
+			$wgOut->addHTML("<td>$addressCity</td>");
+			$wgOut->addHTML("<td>$addressState</td>");
+			$wgOut->addHTML("<td>$addressZip</td>");
+			$wgOut->addHTML("<td>$addressCountry</td>");
+			$wgOut->addHTML("<td>$email</td>");
+			$wgOut->addHTML("<td>$addressPhone</td>");
+			$wgOut->addHTML("</tr>");
+			
+			++$index;
+		}
+		
+		$wgOut->addHTML("</tbody></table>");
+		
+		$wgOut->addHTML("<p/>Deleted Rows (click to restore):");
+		$wgOut->addHTML("<table class='wikitable' id='uesppatDeletedShipments'>");
+		$wgOut->addHTML("<thead><tr>");
+		$wgOut->addHTML("<th>#</th>");
+		$wgOut->addHTML("<th>Name</th>");
+		$wgOut->addHTML("<th>Tier</th>");
+		$wgOut->addHTML("<th>Status</th>");
+		$wgOut->addHTML("<th>Order #</th>");
+		$wgOut->addHTML("<th>SKU</th>");
+		$wgOut->addHTML("<th>Ship Method</th>");
+		$wgOut->addHTML("<th>Addressee</th>");
+		$wgOut->addHTML("<th>Line 1</th>");
+		$wgOut->addHTML("<th>Line 2</th>");
+		$wgOut->addHTML("<th>City</th>");
+		$wgOut->addHTML("<th>State</th>");
+		$wgOut->addHTML("<th>Postal Code</th>");
+		$wgOut->addHTML("<th>Country</th>");
+		$wgOut->addHTML("<th>Email</th>");
+		$wgOut->addHTML("<th>Phone Number</th>");
+		$wgOut->addHTML("</tr></thead><tbody>");
+		$wgOut->addHTML("</tbody></table>");
 	}
 	
 	
@@ -882,8 +1300,14 @@ class SpecialUespPatreon extends SpecialPage {
 			case 'link':
 				$this->showLink();
 				break;
+			case 'viewship':
+				$this->showShipments();
+				break;
 			case 'createship':
 				$this->showCreateShipment();
+				break;
+			case 'savenewshipment':
+				$this->saveNewShipment();
 				break;
 			default:
 				$this->_default();

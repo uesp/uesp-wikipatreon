@@ -10,3 +10,82 @@
 #uesppatShowListTierForm {
 	display: inline-block;
 }
+
+.uesppatBadShipment {
+	background-color: #ffcccc;
+}
+
+#uesppatCreateShipments td:nth-child(5) {
+	white-space: nowrap;
+}
+
+#uesppatCreateShipments tr:hover{
+	cursor: pointer;
+	background-color: #ccf;
+}
+
+#uesppatDeletedShipments tr:hover{
+	cursor: pointer;
+	background-color: #fcc;
+}
+
+#uesppatEditWall {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 100;
+	background-color: rgba(0,0,0, 0.7);
+}
+
+#uesppatEditShipEditBox {
+	position: fixed;
+	top: 200px;
+	left: 300px;
+	width: 400px;
+	height: 500px;
+	z-index: 200;
+	background-color: #eef;
+	border: solid 2px darkgray;
+	font-size: 13px;
+	padding: 10px;
+}
+
+#uesppatEditShipDeleteButton {
+	float: left;
+}
+
+#uesppatEditShipSaveButton {
+	float: right;
+}
+
+#uesppatEditShipCancelButton {
+	margin-right: 15px;
+	float: right;
+}
+
+#uesppatEditShipTitle {
+	padding-bottom: 10px;
+	font-weight: bold;
+	text-align: center;
+}
+
+.uesppatEditShipLabel {
+	width: 100px;
+	text-align: right;
+	display: inline-block;
+	padding-right: 10px;
+	height: 1.5em;
+}
+
+#uesppatEditShipEditBox input[type=text] {
+	width: 200px;
+	text-align: left;
+	display: inline-block;
+}
+
+#uesppatEditShipEditBox input[readonly] {
+	background-color: #eee;
+	border: solid 1px #bbb;
+}

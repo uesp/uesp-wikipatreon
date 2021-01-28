@@ -1,0 +1,20 @@
+CREATE TABLE /*$wgDBprefix*/patreon_shipment (
+  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  patreon_id DECIMAL(25,0) unsigned NOT NULL,
+  addressName TINYTEXT NOT NULL,
+  addressLine1 TINYTEXT NOT NULL,
+  addressLine2 TINYTEXT NOT NULL,
+  addressCity TINYTEXT NOT NULL,
+  addressState TINYTEXT NOT NULL,
+  addressZip TINYTEXT NOT NULL,
+  addressCountry TINYTEXT NOT NULL,
+  addressPhone TINYTEXT NOT NULL,
+  email TINYTEXT NOT NULL,
+  orderNumber TINYTEXT NOT NULL,
+  orderSku TINYTEXT NOT NULL,
+  shipMethod TINYTEXT NOT NULL,
+  createDate TIMESTAMP NOT NULL,
+  isProcessed TINYINT NOT NULL,
+  KEY(patreon_id),
+  KEY(orderNumber(16))
+) /*$wgDBTableOptions*/;
