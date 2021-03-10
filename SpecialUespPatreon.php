@@ -8,6 +8,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 
 class SpecialUespPatreon extends SpecialPage {
 	
+	public $WIKILIST_STEEL_MAXLENGTH = 90; 
+	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
 	public $orderSuffix = "00";
@@ -432,6 +434,85 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function showWikiList() {
+		global $wgOut;
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		$this->loadInfo();
+		$patrons = $this->loadPatronDataDB(true, false);
+		$tiers = array();
+		
+		if ($patrons == null || count($patrons) == 0) {
+			$wgOut->addHTML("No patrons found!");
+			return;
+		}
+		
+		foreach ($patrons as $patron) {
+			$tier = $patron['tier'];
+			if ($tier == null || $tier == "") continue;
+			if ($tiers[$tier] == null) $tiers[$tier] = array();
+			$tiers[$tier][] = $patron;
+		}
+		
+		foreach ($tiers as $tier => $tierData) {
+			usort($tiers[$tier], array("SpecialUespPatreon", "sortTierPatronByName"));
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($patrons);
+		$wgOut->addHTML("Showing wiki table for $count active patrons. Jump to <a href='#uespWikiPreview'>Table Preview</a> <button id='uespWikiPatronCopyButton'>Copy to Clipboard</button>");
+		$wikiText  = "{| class=\"hiddentable vtop\"\n";
+		
+		foreach (array("Daedric", "Glass", "Orcish", "Elven", "Steel") as $tier) {
+			$tierData = $tiers[$tier];
+			
+			if ($tier == "Daedric" || $tier == "Glass" || $tier == "Elven" || $tier == "Steel") {
+				$wikiText .= "| {{C|5}}\n";
+			}
+			else if ($tier == "Orcish") {
+				$wikiText .= ":&nbsp;\n";
+			}
+			
+			$wikiText .= ";$tier Patrons\n";
+			$outputCount = 0;
+			
+			foreach ($tierData as $patron) {
+				++$outputCount;
+				
+				if ($tier == "Steel" && $outputCount > $this->WIKILIST_STEEL_MAXLENGTH) {
+					$outputCount = 0;
+					$wikiText .= "| {{C|5}}\n";
+					$wikiText .= ";$tier Patrons (cont'd)\n";
+				}
+				
+				$name = $this->escapeHtml($patron['name']);
+				$wikiText .= ":$name\n";
+			}
+		}
+		
+		$wikiText .= "|}";
+		
+		$wgOut->addHTML("<pre id='uespWikiPatrons'>$wikiText</pre>");
+		$wgOut->addHTML("<p><br/><a name='uespWikiPreview'></a>");
+		$wgOut->addWikiText($wikiText);
+	}
+	
+	
+	public function sortTierPatronByName($a, $b)
+	{
+		$name1 = $a['name'];
+		$name2 = $b['name'];
+		return strcasecmp($name1, $name2);
+	}
+	
+	
 	private function showTierChanges() {
 		global $wgOut;
 		
@@ -448,7 +529,7 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<p/>");
 		
 		$count = count($this->tierChanges);
-		$wgOut->addHTML("Showing data for $count tier changes.");
+		$wgOut->addHTML("Showing data for $count tier changes. Jump");
 		
 		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'>");
 		
@@ -569,6 +650,7 @@ class SpecialUespPatreon extends SpecialPage {
 		return $html;
 	}
 	
+	
 	private function showList() {
 		global $wgOut;
 		
@@ -614,7 +696,6 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("With Selected Patrons: ");
 		$wgOut->addHTML("<input type='hidden' id='uesppatPatronTableAction' name='action' value='' />");
 		$wgOut->addHTML("<input type='button' value='Create Shipment' onclick='uesppatOnCreateShipmentButton();'/>");
-		
 		
 		$this->outputPatronTable($patrons);
 		
@@ -857,10 +938,12 @@ class SpecialUespPatreon extends SpecialPage {
 		$linkLink = SpecialUespPatreon::getLink("link");
 		$newLink = SpecialUespPatreon::getLink("shownew");
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
+		$wikiLink = SpecialUespPatreon::getLink("showwiki");
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><a href='$viewLink'>View Current Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$wikiLink'>View Wiki Patreon List</a></li>");
 		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
 		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
 		
@@ -1296,6 +1379,9 @@ class SpecialUespPatreon extends SpecialPage {
 				break;
 			case 'tierchange':
 				$this->showTierChanges();
+				break;
+			case 'showwiki':
+				$this->showWikiList();
 				break;
 			case 'link':
 				$this->showLink();

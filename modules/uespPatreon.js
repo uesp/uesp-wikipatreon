@@ -316,8 +316,43 @@ window.uesppatOnSaveNewShipments = function() {
 }
 
 
+window.uesppatOnWikiPatronCopyClick = function()
+{
+	var copyText = $("#uespWikiPatrons").text();
+	var tempTextArea = $("<textarea>");
+	
+	tempTextArea.css("position", "fixed");
+	tempTextArea.css("top", "0");
+	tempTextArea.css("left", "0");
+	tempTextArea.css("width", "2em");
+	tempTextArea.css("height", "2em");
+	tempTextArea.css("padding", "0");
+	tempTextArea.css("border", "none");
+	tempTextArea.css("outline", "none");
+	tempTextArea.css("boxshadow", "none");
+	tempTextArea.css("background", "transparent");
+	tempTextArea.appendTo("body").text(copyText)
+	tempTextArea.focus().select();
+	
+	console.log("uesppatOnWikiPatronCopyClick");
+	
+	try {
+		var successful = document.execCommand('copy');
+		var msg = successful ? 'successful' : 'unsuccessful';
+		//console.log('Copying text command was ' + msg);
+	} catch (err) {
+		window.alert("Error: Failed to copy text for some reason....you'll have to do it manually!")
+		//console.log('Oops, unable to copy');
+	}
+	
+	tempTextArea.remove();
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatCreateShipments tr").not('thead tr').on("click", uesppatOnPatronShipmentRowClicked);
+	
+	$("#uespWikiPatronCopyButton").click(uesppatOnWikiPatronCopyClick);
 	
 });

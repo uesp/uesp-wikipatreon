@@ -89,3 +89,7 @@
 	background-color: #eee;
 	border: solid 1px #bbb;
 }
+
+#uespWikiPatronCopyButton {
+	float: right;
+}
