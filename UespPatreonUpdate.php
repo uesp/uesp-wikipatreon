@@ -173,7 +173,7 @@ class UespPatreonUpdate {
 			}
 			
 				//TODO: Tier Check
-			if ($existingUser['tier'] != $user['tier']) {
+			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "") {
 				
 					// Don't update tier changes on new or non-active users
 				if ( !$existingUser['__isnew'] && !($user['tier'] == "" && $user['status'] != "active_patron") ) {
@@ -183,7 +183,7 @@ class UespPatreonUpdate {
 					$newTier['oldTier'] = $existingUser['tier'];
 					$newTier['newTier'] = $user['tier'];
 					$newTier['date'] = time();
-					$this->tierChanges[] = $newTier; 
+					$this->tierChanges[] = $newTier;
 				}
 			}
 			

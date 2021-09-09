@@ -8,7 +8,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 
 class SpecialUespPatreon extends SpecialPage {
 	
-	public $WIKILIST_STEEL_MAXLENGTH = 90; 
+	public $WIKILIST_STEEL_MAXLENGTH = 90;
+	public $YEARLY_DISCOUNT = 0.10;
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
@@ -147,39 +148,39 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		while ($row = $res->fetchRow()) {
 			
-			if ($row['k'] == 'last_update') 
+			if ($row['k'] == 'last_update')
 				$this->lastPatronUpdate = intval($row['v']);
-			elseif ($row['k'] == 'access_token') 
+			elseif ($row['k'] == 'access_token')
 				$this->accessToken = $row['v'];
 			elseif ($row['k'] == 'orderSuffix') 
 				$this->orderSuffix = $row['v'];
-			elseif ($row['k'] == 'orderIndex_Iron') 
+			elseif ($row['k'] == 'orderIndex_Iron')
 				$this->orderIndex['Iron'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Steel') 
+			elseif ($row['k'] == 'orderIndex_Steel')
 				$this->orderIndex['Steel'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Elven') 
+			elseif ($row['k'] == 'orderIndex_Elven')
 				$this->orderIndex['Elven'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Orcish') 
+			elseif ($row['k'] == 'orderIndex_Orcish')
 				$this->orderIndex['Orcish'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Glass') 
+			elseif ($row['k'] == 'orderIndex_Glass')
 				$this->orderIndex['Glass'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Daedric') 
+			elseif ($row['k'] == 'orderIndex_Daedric')
 				$this->orderIndex['Daedric'] = intval($row['v']);
-			elseif ($row['k'] == 'orderIndex_Other') 
+			elseif ($row['k'] == 'orderIndex_Other')
 				$this->orderIndex['Other'] = intval($row['v']);
-			elseif ($row['k'] == 'orderSku_Iron') 
+			elseif ($row['k'] == 'orderSku_Iron')
 				$this->orderSku['Iron'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Steel') 
+			elseif ($row['k'] == 'orderSku_Steel')
 				$this->orderSku['Steel'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Elven') 
+			elseif ($row['k'] == 'orderSku_Elven')
 				$this->orderSku['Elven'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Orcish') 
+			elseif ($row['k'] == 'orderSku_Orcish')
 				$this->orderSku['Orcish'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Glass') 
+			elseif ($row['k'] == 'orderSku_Glass')
 				$this->orderSku['Glass'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Daedric') 
+			elseif ($row['k'] == 'orderSku_Daedric')
 				$this->orderSku['Daedric'] = $row['v'];
-			elseif ($row['k'] == 'orderSku_Other') 
+			elseif ($row['k'] == 'orderSku_Other')
 				$this->orderSku['Other'] = $row['v'];
 		}
 		
@@ -332,6 +333,9 @@ class SpecialUespPatreon extends SpecialPage {
 			if ($this->inputHideTierDaedric && $row['tier'] == 'Daedric') continue;
 			if ($this->inputHideTierOther && $row['tier'] == '') continue;
 			
+			$row['rewards'] = array();
+			$row['totalRewardValue'] = 0;
+			
 			if ($id == null || $id <= 0) $id = ++$index;
 			$patrons[$id] = $row;
 		}
@@ -339,7 +343,29 @@ class SpecialUespPatreon extends SpecialPage {
 		$this->patrons = $patrons;
 		uasort($this->patrons, array("SpecialUespPatreon", "sortPatronsByStartDate"));
 		
+		$this->loadPatronRewardDataDB();
+		
 		return $this->patrons;
+	}
+	
+	
+	private function loadPatronRewardDataDB() {
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_reward', '*');
+		if ($res->numRows() == 0) return false;
+		
+		while ($row = $res->fetchRow()) {
+			$id = intval($row['patreon_id']);
+			
+			if ($this->patrons[$id] != null)
+			{
+				$this->patrons[$id]['rewards'][] = $row;
+				$this->patrons[$id]['totalRewardValue'] += intval($row['rewardValueCents']);
+			}
+		}
+		
+		return true;
 	}
 	
 	
@@ -724,6 +750,8 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<th>Status</th>");
 		$wgOut->addHTML("<th>Pledge Type</th>");
 		$wgOut->addHTML("<th>Lifetime $</th>");
+		$wgOut->addHTML("<th>Reward $</th>");
+		$wgOut->addHTML("<th>Net Due $</th>");
 		$wgOut->addHTML("<th>Patron Since</th>");
 		$wgOut->addHTML("<th>Has Address</th>");
 		$wgOut->addHTML("</tr>");
@@ -736,6 +764,10 @@ class SpecialUespPatreon extends SpecialPage {
 			$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
 			$pledgeType = $patron['pledgeCadence'];
 			$pledgeStart = $patron['startDate'];
+			
+			$reward = '$' . number_format($patron['totalRewardValue'] / 100, 2);
+			$netDue = $patron['lifetimePledgeCents'] - $patron['totalRewardValue'];
+			$netDue = '$' . number_format($netDue / 100, 2);
 			
 			if ($pledgeType == 1)
 				$pledgeType = "Monthly";
@@ -758,6 +790,8 @@ class SpecialUespPatreon extends SpecialPage {
 			$wgOut->addHTML("<td>$status</td>");
 			$wgOut->addHTML("<td>$pledgeType</td>");
 			$wgOut->addHTML("<td>$lifetime</td>");
+			$wgOut->addHTML("<td>$reward</td>");
+			$wgOut->addHTML("<td>$netDue</td>");
 			$wgOut->addHTML("<td>$pledgeStart</td>");
 			$wgOut->addHTML("<td>$hasAddress</td>");
 			$wgOut->addHTML("</tr>");

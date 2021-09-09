@@ -102,6 +102,7 @@ class UespPatreonHooks {
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_user', "$sql/patreon_user.sql", true ] );
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_tierchange', "$sql/patreon_tierchange.sql", true ] );
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_info', "$sql/patreon_info.sql", true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_shipment', "$sql/patreon_shipments.sql", true ] );
 		return true;
 	}    
 	
