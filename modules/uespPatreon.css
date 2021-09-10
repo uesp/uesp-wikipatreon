@@ -93,3 +93,21 @@
 #uespWikiPatronCopyButton {
 	float: right;
 }
+
+.uespPatEditRewardForm label {
+	width: 100px;
+	text-align: right;
+	display: inline-block;
+}
+
+.uespPatOk {
+	background-color: #cfc;
+}
+
+.uespPatWarning {
+	background-color: #ffc;
+}
+
+.uespPatError {
+	background-color: #fcc;
+}

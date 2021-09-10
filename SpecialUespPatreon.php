@@ -9,7 +9,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 class SpecialUespPatreon extends SpecialPage {
 	
 	public $WIKILIST_STEEL_MAXLENGTH = 90;
-	public $YEARLY_DISCOUNT = 0.10;
+	
+	public static $YEARLY_DISCOUNT = 0.10;			//TODO: Put in database?
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
@@ -35,12 +36,15 @@ class SpecialUespPatreon extends SpecialPage {
 	public $inputHideTierDaedric = 0;
 	public $inputHideTierOther = 0;
 	public $inputPatronIds = array();
+	public $inputPatronId = 0;
+	public $inputRewardId = 0;
 	public $inputShowOnlyUnprocessed = 0;
 	
 	public $breadcrumb = array();
 	public $patrons = array();
 	public $tierChanges = array();
 	public $shipments = array();
+	public $patronData = array();
 	
 	
 	public function __construct() {
@@ -49,6 +53,48 @@ class SpecialUespPatreon extends SpecialPage {
 		parent::__construct('UespPatreon');
 		
 		$wgOut->addModules( 'ext.UespPatreon.modules' );
+	}
+	
+	
+	public static function getPledgeCadenceText($cadence)
+	{
+		if ($cadence == 1)  return "Monthly";
+		if ($cadence == 12) return "Annual";
+		
+		$pledgeType = self::escapeHtml($cadence);
+		$pledgeType = "Every $pledgeType Months";
+		return $pledgeType;
+	}
+	
+	
+	public static function getYearlyTierAmount($tier, $pledgeCadence)
+	{
+		$pledgeCadence = intval($pledgeCadence);
+		if ($pledgeCadence <= 0) $pledgeCadence = 1;
+		
+		$tier = strtolower($tier);
+		$yearlyAmt = 0;
+		
+			//TODO: Put in database?
+		if ($tier == "iron")
+			$yearlyAmt = 2400;
+		elseif ($tier == "steel")
+			$yearlyAmt = 4800;
+		elseif ($tier == "elven")
+			$yearlyAmt = 9600;
+		elseif ($tier == "orcish")
+			$yearlyAmt = 14400;
+		elseif ($tier == "glass")
+			$yearlyAmt = 30000;
+		elseif ($tier == "daedric")
+			$yearlyAmt = 60000;
+		
+		if ($pledgeCadence >= 12)
+		{
+			$yearlyAmt = floor($yearlyAmt * (1 - self::$YEARLY_DISCOUNT));
+		}
+		
+		return $yearlyAmt;
 	}
 	
 	
@@ -61,8 +107,8 @@ class SpecialUespPatreon extends SpecialPage {
 	public static function getLink($param = null, $query = null) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 		
-		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
-		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
 		if ($query) $link .= "?" . $query;
@@ -70,8 +116,8 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
-	public function escapeHtml($html) {
-		return htmlspecialchars ($html);
+	public static function escapeHtml($html) {
+		return htmlspecialchars($html);
 	}
 	
 	
@@ -137,6 +183,11 @@ class SpecialUespPatreon extends SpecialPage {
 		$patronIds = $req->getArray("patronids");
 		if ($patronIds != null) $this->inputPatronIds = $patronIds;
 		
+		$patronId = $req->getVal("patronid");
+		if ($patronId != null) $this->inputPatronId = intval($patronId);
+		
+		$rewardId = $req->getVal("rewardid");
+		if ($rewardId != null) $this->inputRewardId = intval($rewardId);
 	}
 	
 	
@@ -289,8 +340,6 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	
 	private function loadPatronDataPatreon($onlyActive = true, $includeFollowers = false) {
-		global $wgOut;
-		
 		require_once('Patreon/API2.php');
 		require_once('Patreon/OAuth2.php');
 		
@@ -300,6 +349,7 @@ class SpecialUespPatreon extends SpecialPage {
 		
 		$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 2000, null);
 		
+		//$wgOut = $this->getOutput();
 		//$raw = print_r($response, true);
 		//$wgOut->addHTML("Response: <pre>$raw</pre>");
 		
@@ -310,7 +360,135 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
-	private function loadPatronDataDB($onlyActive = true, $includeFollowers = false) {
+	private function loadPatronDataForMember($memberId) {
+		require_once('Patreon/API2.php');
+		require_once('Patreon/OAuth2.php');
+		
+		if (!$this->loadInfo()) return array();
+		
+		$api = new Patreon\API($this->accessToken);
+		
+		$response = $api->fetch_member_details($memberId);
+		
+		$wgOut = $this->getOutput();
+		$raw = print_r($response, true);
+		$wgOut->addHTML("Response: <pre>$raw</pre>");
+		
+		$this->patronData = UespPatreonCommon::parsePatronDataForMember($response);
+		
+		$response = $api->fetch_user_details($memberId);
+		
+		$wgOut = $this->getOutput();
+		$raw = print_r($response, true);
+		$wgOut->addHTML("Response: <pre>$raw</pre>");
+		
+		$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 10, null);
+		
+		$wgOut = $this->getOutput();
+		$raw = print_r($response, true);
+		$wgOut->addHTML("Response: <pre>$raw</pre>");
+		
+		return $this->patronData;
+	}
+	
+	
+	private function saveRewardToDB($reward)
+	{
+		$db = wfGetDB(DB_MASTER);
+		
+		$safeId = intval($reward['id']);
+		
+		$values = array();
+		$values['shipmentId'] = intval($reward['shipmentId']);
+		$values['patreon_id'] = intval($reward['patreon_id']);
+		$values['rewardDate'] = $reward['rewardDate'];
+		$values['rewardNote'] = $reward['rewardNote'];
+		$values['rewardValueCents'] = $db->strencode($reward['rewardValueCents']);
+		
+		if ($safeId < 0)
+			$res = $db->insert('patreon_reward', $values);
+		else
+			$res = $db->update('patreon_reward', $values, ['id' => $safeId]);
+		
+		return $res;
+	}
+	
+	
+	private function loadRewardDataFromDb ($rewardId)
+	{
+		$db = wfGetDB(DB_SLAVE);
+		
+		$safeId = intval($rewardId);
+		$res = $db->select('patreon_reward', '*',  "id='$safeId'");
+		if ($res->numRows() == 0) return array();
+		
+		$reward = $res->fetchRow();
+		return $reward;
+	}
+	
+	
+	private function loadRewardDataForMemberFromDb ($patronId)
+	{
+		$db = wfGetDB(DB_SLAVE);
+		
+		$safeId = intval($patronId);
+		$res = $db->select('patreon_reward', '*',  "patreon_id='$safeId'");
+		if ($res->numRows() == 0) return array();
+		
+		$rewards = array();
+		
+		while ($row = $res->fetchRow()) {
+			$rewards[] = $row;
+		}
+		
+		return $rewards;
+	}
+	
+	
+	private function loadPatronDataForMemberFromDb ($patronId)
+	{
+		$db = wfGetDB(DB_SLAVE);
+		
+		$safeId = intval($patronId);
+		$res = $db->select('patreon_user', '*', "patreon_id='$safeId'");
+		if ($res->numRows() == 0) return array();
+		
+		$patron = $res->fetchRow();
+		
+		$rewards = $this->loadRewardDataForMemberFromDb($patronId);
+		$patron['rewards'] = $rewards;
+		$patron['totalRewardValue'] = 0;
+		
+		foreach ($rewards as $reward)
+		{
+			$patron['totalRewardValue'] += intval($reward['rewardValueCents']);
+		}
+		
+		return $patron;
+	}
+	
+	
+	private function loadAllPatronRewardDataDB() {
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_reward', '*');
+		if ($res->numRows() == 0) return false;
+		
+		while ($row = $res->fetchRow()) {
+			$id = intval($row['patreon_id']);
+			
+			if ($this->patrons[$id] != null)
+			{
+				$this->patrons[$id]['rewards'][] = $row;
+				$this->patrons[$id]['totalRewardValue'] += intval($row['rewardValueCents']);
+			}
+		}
+		
+		return true;
+	}
+	
+	
+	private function loadAllPatronDataDB($onlyActive = true, $includeFollowers = false) {
 		$db = wfGetDB(DB_SLAVE);
 		
 		$res = $db->select('patreon_user', '*');
@@ -343,29 +521,9 @@ class SpecialUespPatreon extends SpecialPage {
 		$this->patrons = $patrons;
 		uasort($this->patrons, array("SpecialUespPatreon", "sortPatronsByStartDate"));
 		
-		$this->loadPatronRewardDataDB();
+		$this->loadAllPatronRewardDataDB();
 		
 		return $this->patrons;
-	}
-	
-	
-	private function loadPatronRewardDataDB() {
-		$db = wfGetDB(DB_SLAVE);
-		
-		$res = $db->select('patreon_reward', '*');
-		if ($res->numRows() == 0) return false;
-		
-		while ($row = $res->fetchRow()) {
-			$id = intval($row['patreon_id']);
-			
-			if ($this->patrons[$id] != null)
-			{
-				$this->patrons[$id]['rewards'][] = $row;
-				$this->patrons[$id]['totalRewardValue'] += intval($row['rewardValueCents']);
-			}
-		}
-		
-		return true;
 	}
 	
 	
@@ -415,7 +573,7 @@ class SpecialUespPatreon extends SpecialPage {
 			$periodName = "Last Year";
 		
 		$this->loadInfo();
-		$patrons = $this->loadPatronDataDB($this->inputOnlyActive, false);
+		$patrons = $this->loadAllPatronDataDB($this->inputOnlyActive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
@@ -460,8 +618,250 @@ class SpecialUespPatreon extends SpecialPage {
 	}
 	
 	
+	private function saveReward()
+	{
+		$wgOut = $this->getOutput();
+		$req = $this->getRequest();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputRewardId <= 0 && $this->inputRewardId != -111)
+		{
+			$wgOut->addHTML("No reward specified!");
+			return;
+		}
+		
+		$rewardDate = $req->getVal('rewardDate');
+		$rewardNote = $req->getVal('rewardNote');
+		$rewardValue = $req->getVal('rewardValue');
+		$shipmentId = $req->getVal('shipmentId');
+		$patreonId = $req->getVal('patreonid');
+		
+		if ($rewardDate === null || $rewardNote === null || $rewardValue === null || $shipmentId === null || $patreonId === null)
+		{
+			$wgOut->addHTML("Missing reward data to save!");
+			return;
+		}
+		
+		$rewardValue = floor(floatval($rewardValue) * 100);
+		
+		$reward = array();
+		$reward['id'] = $this->inputRewardId;
+		$reward['rewardDate'] = $rewardDate;
+		$reward['rewardNote'] = $rewardNote;
+		$reward['rewardValueCents'] = $rewardValue;
+		$reward['shipmentId'] = intval($shipmentId);
+		$reward['patreon_id'] = intval($patreonId);
+		
+		$saveResult = $this->saveRewardToDB($reward);
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Patrons", $this->getLink("list"));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		if (!$saveResult)
+		{
+			$wgOut->addHTML("Error: Failed to save reward!");
+			return;
+		}
+		
+		if ($this->inputRewardId > 0)
+			$wgOut->addHTML("Successfully saved reward #{$this->inputRewardId}!<br/>");
+		else
+			$wgOut->addHTML("Successfully added new reward for patron #$patreonId!<br/>");
+		
+		$this->inputPatronId = $patreonId;
+		$this->showRewards(true);
+	}
+	
+	
+	private function addReward()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputPatronId <= 0)
+		{
+			$wgOut->addHTML("No patron specified!");
+			return;
+		}
+		
+		$patron = $this->loadPatronDataForMemberFromDb($this->inputPatronId);
+		
+		if ($patron == null)
+		{
+			$wgOut->addHTML("Failed to load the specified patron!");
+			return;
+		}
+		
+		$rewardId = "-111";
+		$patreonId = $this->inputPatronId;
+		$shipmentId = 0;
+		$date = date("Y-m-d H:i:s");
+		$note = "";
+		$value = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence']);
+		$value = number_format($value / 100, 2);
+		$actionLink = $this->getLink("savereward");
+		
+		$wgOut->addHTML("Creating New Reward:<p/>");
+		$wgOut->addHTML("<form method='post' action='$actionLink' class='uespPatEditRewardForm'>");
+		$wgOut->addHTML("<input type='hidden' name='rewardid' value='$rewardId' />");
+		$wgOut->addHTML("<input type='hidden' name='shipmentId' value='$shipmentId' />");
+		$wgOut->addHTML("<input type='hidden' name='patreonid' value='$patreonId' />");
+		$wgOut->addHTML("<label for='rewardDate'>Date:</label> <input type='text' name='rewardDate' value='$date' size='24' /><br/>");
+		$wgOut->addHTML("<label for='rewardNote'>Note:</label> <input type='text' name='rewardNote' value='$note' size='64' /><br/>");
+		$wgOut->addHTML("<label for='rewardValue'>Value:</label> <input type='text' name='rewardValue' value='$value' size='16' /><br/>");
+		$wgOut->addHTML("<input type='submit' value='Save' /><br/>");
+		$wgOut->addHTML("</form>");
+	}
+	
+	
+	private function editReward()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputRewardId <= 0)
+		{
+			$wgOut->addHTML("No reward specified!");
+			return;
+		}
+		
+		$reward = $this->loadRewardDataFromDb($this->inputRewardId);
+		
+		if ($reward == null)
+		{
+			$wgOut->addHTML("Failed to load the specified reward!");
+			return;
+		}
+		
+		$rewardId = $reward['id'];
+		$patreonId = $reward['patreon_id'];
+		$shipmentId = $reward['shipmentId'];
+		$date = $this->escapeHtml($reward['rewardDate']);
+		$note = $this->escapeHtml($reward['rewardNote']);
+		$value = number_format($reward['rewardValueCents'] / 100, 2);
+		$actionLink = $this->getLink("savereward");
+		
+		$wgOut->addHTML("Editing Reward #$rewardId:<p/>");
+		$wgOut->addHTML("<form method='post' action='$actionLink' class='uespPatEditRewardForm'>");
+		$wgOut->addHTML("<input type='hidden' name='rewardid' value='$rewardId' />");
+		$wgOut->addHTML("<input type='hidden' name='shipmentId' value='$shipmentId' />");
+		$wgOut->addHTML("<input type='hidden' name='patreonid' value='$patreonId' />");
+		$wgOut->addHTML("<label for='rewardDate'>Date:</label> <input type='text' name='rewardDate' value='$date' size='24' /><br/>");
+		$wgOut->addHTML("<label for='rewardNote'>Note:</label> <input type='text' name='rewardNote' value='$note' size='64' /><br/>");
+		$wgOut->addHTML("<label for='rewardValue'>Value:</label> <input type='text' name='rewardValue' value='$value' size='16' /><br/>");
+		$wgOut->addHTML("<input type='submit' value='Save' /><br/>");
+		$wgOut->addHTML("</form>");
+	}
+	
+	
+	private function showRewards($skipBreadcrumb = false)
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputPatronId <= 0)
+		{
+			$wgOut->addHTML("No patron specified!");
+			return;
+		}
+		
+		$patron = $this->loadPatronDataForMemberFromDb($this->inputPatronId);
+		
+		if ($patron == null || $patron['rewards'] == null)
+		{
+			$wgOut->addHTML("Failed to load the specified patron!");
+			return;
+		}
+		
+		if (!$skipBreadcrumb)
+		{
+			$this->addBreadcrumb("Home", $this->getLink());
+			$this->addBreadcrumb("Patrons", $this->getLink("list"));
+			$wgOut->addHTML($this->getBreadcrumbHtml());
+			$wgOut->addHTML("<p/>");
+		}
+		
+		$name = $this->escapeHtml($patron['name']);
+		$pledgeType = $this->getPledgeCadenceText($patron['pledgeCadence']);
+		
+		$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
+		
+		$wgOut->addHTML("Showing rewards for patron $name ($pledgeType, $lifetime total):");
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesprewards'>");
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Date</th>");
+		$wgOut->addHTML("<th>Note</th>");
+		$wgOut->addHTML("<th>Shipment</th>");
+		$wgOut->addHTML("<th>Value</th>");
+		$wgOut->addHTML("<th></th>");
+		$wgOut->addHTML("</tr>");
+		
+		foreach ($patron['rewards'] as $reward)
+		{
+			$rewardId = $reward['id'];
+			$date = $this->escapeHtml($reward['rewardDate']);
+			$note = $this->escapeHtml($reward['rewardNote']);
+			$value = '$' . number_format($reward['rewardValueCents'] / 100, 2);
+			
+			$editLink = $this->getLink("editreward", "rewardid=$rewardId");
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$date</td>");
+			$wgOut->addHTML("<td>$note</td>");
+			$wgOut->addHTML("<td>todo...</td>");
+			$wgOut->addHTML("<td>$value</td>");
+			$wgOut->addHTML("<td><a href='$editLink'>Edit</a></td>");
+			$wgOut->addHTML("</tr>");
+		}
+		
+		$wgOut->addHTML("<tr>");
+		$addLink = $this->getLink("addreward", "patronid={$this->inputPatronId}");
+		$wgOut->addHTML("<td colspan='100' style='text-align: center;'><a href='$addLink'>Add Reward</a></td>");
+		$wgOut->addHTML("</tr>");
+		
+		$wgOut->addHTML("</table>");
+	}
+	
+	
+	private function showPledges()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputPatronId <= 0)
+		{
+			$wgOut->addHTML("No patron specified!");
+			return;
+		}
+		
+		$userData = $this->loadPatronDataForMember($this->inputPatronId);
+	}
+	
+	
 	private function showWikiList() {
-		global $wgOut;
+		$wgOut = $this->getOutput();
 		
 		if (!$this->hasPermission("view")) {
 			$wgOut->addHTML("Permission Denied!");
@@ -469,7 +869,7 @@ class SpecialUespPatreon extends SpecialPage {
 		}
 		
 		$this->loadInfo();
-		$patrons = $this->loadPatronDataDB(true, false);
+		$patrons = $this->loadAllPatronDataDB(true, false);
 		$tiers = array();
 		
 		if ($patrons == null || count($patrons) == 0) {
@@ -700,7 +1100,7 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<p/>");
 		
 		$this->loadInfo();
-		$patrons = $this->loadPatronDataDB($this->inputOnlyActive, false);
+		$patrons = $this->loadAllPatronDataDB($this->inputOnlyActive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
@@ -754,6 +1154,7 @@ class SpecialUespPatreon extends SpecialPage {
 		$wgOut->addHTML("<th>Net Due $</th>");
 		$wgOut->addHTML("<th>Patron Since</th>");
 		$wgOut->addHTML("<th>Has Address</th>");
+		$wgOut->addHTML("<th></th>");
 		$wgOut->addHTML("</tr>");
 		
 		foreach ($patrons as $patron) {
@@ -761,21 +1162,32 @@ class SpecialUespPatreon extends SpecialPage {
 			$name = $this->escapeHtml($patron['name']);
 			$tier = $this->escapeHtml($patron['tier']);
 			$status = $this->makeNiceStatus($patron['status']);
-			$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
-			$pledgeType = $patron['pledgeCadence'];
+			$lifetime = $patron['lifetimePledgeCents'];
+			$lifetimeText = '$' . number_format($lifetime / 100, 2);
+			$pledgeType = $this->getPledgeCadenceText($patron['pledgeCadence']);
 			$pledgeStart = $patron['startDate'];
+			
+			$tierYearly = $this->getYearlyTierAmount($tier, $patron['pledgeCadence']);
 			
 			$reward = '$' . number_format($patron['totalRewardValue'] / 100, 2);
 			$netDue = $patron['lifetimePledgeCents'] - $patron['totalRewardValue'];
-			$netDue = '$' . number_format($netDue / 100, 2);
+			$netDueText = '$' . number_format($netDue / 100, 2);
 			
-			if ($pledgeType == 1)
-				$pledgeType = "Monthly";
-			else if ($pledgeType == 12)
-				$pledgeType = "Annual";
+				/* Doesn't work currently */
+			if (false && $this->hasPermission("edit")) {
+				$pledgeLink = $this->getLink("viewpledges", "patronid=$patronId");
+				$viewPledgeLink = "<a href='$pledgeLink'>View Pledges</a>";
+			}
 			else {
-				$pledgeType = $this->escapeHtml($pledgeType);
-				$pledgeType = "Every $pledgeType Months";
+				$viewPledgeLink = "";
+			}
+			
+			if ($this->hasPermission("edit")) {
+				$rewardLink = $this->getLink("viewrewards", "patronid=$patronId");
+				$viewRewardLink = "<a href='$rewardLink'>View Rewards</a>";
+			}
+			else {
+				$viewRewardLink = "";
 			}
 			
 			$hasAddress = "Yes";
@@ -783,17 +1195,28 @@ class SpecialUespPatreon extends SpecialPage {
 			
 			$checkbox = "<input type='checkbox' name='patronids[]' class='uesppatPatronRowCheckbox' value='$patronId'/>";
 			
+			$netDueClass = "";
+			
+			if ($netDue < 0)
+				$netDueClass = "uespPatError";
+			else if ($netDue >= $tierYearly / 2)
+				$netDueClass = "uespPatOk";
+			
+			$addressClass = "";
+			if ($hasAddress == "NO") $addressClass = "uespPatError";
+			
 			$wgOut->addHTML("<tr>");
 			$wgOut->addHTML("<td>$checkbox</td>");
 			$wgOut->addHTML("<td>$name</td>");
 			$wgOut->addHTML("<td>$tier</td>");
 			$wgOut->addHTML("<td>$status</td>");
 			$wgOut->addHTML("<td>$pledgeType</td>");
-			$wgOut->addHTML("<td>$lifetime</td>");
+			$wgOut->addHTML("<td>$lifetimeText</td>");
 			$wgOut->addHTML("<td>$reward</td>");
-			$wgOut->addHTML("<td>$netDue</td>");
+			$wgOut->addHTML("<td class='$netDueClass'>$netDueText</td>");
 			$wgOut->addHTML("<td>$pledgeStart</td>");
-			$wgOut->addHTML("<td>$hasAddress</td>");
+			$wgOut->addHTML("<td class='$addressClass'>$hasAddress</td>");
+			$wgOut->addHTML("<td>$viewRewardLink $viewPledgeLink</td>");
 			$wgOut->addHTML("</tr>");
 		}
 		
@@ -803,8 +1226,8 @@ class SpecialUespPatreon extends SpecialPage {
 	
 	private function redirect() {
 		global $wgOut;
-        
-        $authorizationUrl = SpecialUespPatreon::getAuthorizationLink();
+		
+		$authorizationUrl = SpecialUespPatreon::getAuthorizationLink();
  		$wgOut->redirect( $authorizationUrl );
  		
  		return true;
@@ -1269,7 +1692,7 @@ class SpecialUespPatreon extends SpecialPage {
 		}
 		
 		$this->loadInfo();
-		$this->loadPatronDataDB(false, false);
+		$this->loadAllPatronDataDB(false, false);
 		
 		$this->createNewShipments();
 		
@@ -1428,6 +1851,22 @@ class SpecialUespPatreon extends SpecialPage {
 				break;
 			case 'savenewshipment':
 				$this->saveNewShipment();
+				break;
+			/*
+			case 'viewpledges':
+				$this->showPledges();
+				break; */
+			case 'viewrewards':
+				$this->showRewards();
+				break;
+			case 'editreward':
+				$this->editReward();
+				break;
+			case 'addreward':
+				$this->addReward();
+				break;
+			case 'savereward':
+				$this->saveReward();
 				break;
 			default:
 				$this->_default();

@@ -56,6 +56,10 @@ class API {
 		// currently_entitled_tiers is the best way to get info on which membership tiers the user is entitled to.  Requires the current user to be creator of the campaign or requires a creator access token.
 		return $this->get_data("members/{$member_id}?include=address,campaign,user,currently_entitled_tiers");
 	}
+	
+	public function fetch_user_details($user_id) {
+		return $this->get_data("identity/{$user_id}?include=address,campaign,user,currently_entitled_tiers");
+	}
 
 	public function fetch_page_of_members_from_campaign($campaign_id, $page_size, $cursor = null) {
 		
@@ -63,9 +67,9 @@ class API {
 		$fields = "fields%5Bmember%5D=full_name,is_follower,last_charge_date,last_charge_status,lifetime_support_cents,currently_entitled_amount_cents,patron_status,email,note,pledge_cadence,pledge_relationship_start";
 		$fields .= "&fields%5Btier%5D=amount_cents,created_at,description,discord_role_ids,edited_at,patron_count,published,published_at,requires_shipping,title,url";
 		$fields .= "&fields%5Baddress%5D=addressee,city,line_1,line_2,postal_code,state,country,phone_number";
-		//$fields .= "&fields%5Bpledge_history%5D=";
+		//$fields .= "&fields%5Bpledge_history%5D=amount_cents";
 		$fields .= "&fields%5Buser%5D=social_connections";
-		$url = "campaigns/{$campaign_id}/members?include=currently_entitled_tiers,address,user&$fields&page%5Bsize%5D={$page_size}";
+		$url = "campaigns/{$campaign_id}/members?include=currently_entitled_tiers,address,user,pledge_history&$fields&page%5Bsize%5D={$page_size}";
 		
 		if ($cursor != null) {
 			

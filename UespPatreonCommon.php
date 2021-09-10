@@ -10,6 +10,15 @@ class UespPatreonCommon {
 	public static $UESP_CAMPAIGN_ID = 2731208;
 	
 	
+	public static function parsePatronDataForMember($responseData) {
+		$result = array();
+		
+		if ($responseData == null || count($responseData) == 0) return $result;
+		
+		return $result;
+	}
+	
+	
 	public static function parsePatronData($responseData, $onlyActive, $includeFollowers) {
 		$result = array();
 		
