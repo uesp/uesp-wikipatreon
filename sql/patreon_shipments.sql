@@ -12,6 +12,7 @@ CREATE TABLE /*$wgDBprefix*/patreon_shipment (
   email TINYTEXT NOT NULL,
   orderNumber TINYTEXT NOT NULL,
   orderSku TINYTEXT NOT NULL,
+  orderQnt INT(10) NOT NULL,
   shipMethod TINYTEXT NOT NULL,
   createDate TIMESTAMP NOT NULL,
   isProcessed TINYINT NOT NULL,

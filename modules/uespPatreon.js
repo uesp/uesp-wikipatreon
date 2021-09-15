@@ -31,6 +31,36 @@ window.uesppatOnCreateShipmentButton = function() {
 }
 
 
+window.uesppatOnEmailButton = function()
+{
+	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatPatronTableAction").val("createemail");
+	$("#uesppatPatronTableForm").submit();
+}
+
+
+window.uesppatOnExportEmailButton = function()
+{
+	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatPatronTableAction").val("exportemail");
+	$("#uesppatPatronTableForm").submit();
+}
+
+
+window.uesppatOnExportCsvShipmentButton = function()
+{
+	var checkedBoxes = $(".uesppatShipmentRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatShipmentTableAction").val("exportshipment");
+	$("#uesppatShipmentTableForm").submit();
+}
+
+
 window.uesppatEditWallElement = null;
 window.uesppatEditShipBox = null;
 window.uesppatEditShipId = -1;
@@ -84,16 +114,18 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	var status = cols.eq(3).text();
 	var orderNumber = cols.eq(4).text();
 	var orderSku = cols.eq(5).text();
-	var shipMethod = cols.eq(6).text();
-	var addressName = cols.eq(7).text();
-	var addressLine1 = cols.eq(8).text();
-	var addressLine2 = cols.eq(9).text();
-	var addressCity = cols.eq(10).text();
-	var addressState = cols.eq(11).text();
-	var addressZip = cols.eq(12).text();
-	var addressCountry = cols.eq(13).text();
-	var email = cols.eq(14).text();
-	var addressPhone = cols.eq(15).text();
+	var orderQnt = cols.eq(6).text();
+	var shipMethod = cols.eq(7).text();
+	var addressName = cols.eq(8).text();
+	var addressLine1 = cols.eq(9).text();
+	var addressLine2 = cols.eq(10).text();
+	var addressCity = cols.eq(11).text();
+	var addressState = cols.eq(12).text();
+	var addressZip = cols.eq(13).text();
+	var addressCountry = cols.eq(14).text();
+	var email = cols.eq(15).text();
+	var addressPhone = cols.eq(16).text();
+	var rewardValue = cols.eq(17).text();
 	
 	uesppatEditShipBox.children("#uesppatEditShipTitle").text("Editing Shipment #" + shipmentId);
 	uesppatEditShipBox.children("#uesppatEditShipName").val(name);
@@ -101,6 +133,7 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	uesppatEditShipBox.children("#uesppatEditShipStatus").val(status);
 	uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val(orderNumber);
 	uesppatEditShipBox.children("#uesppatEditShipOrderSku").val(orderSku);
+	uesppatEditShipBox.children("#uesppatEditShipOrderQnt").val(orderQnt);
 	uesppatEditShipBox.children("#uesppatEditShipMethod").val(shipMethod);
 	uesppatEditShipBox.children("#uesppatEditShipAddressName").val(addressName);
 	uesppatEditShipBox.children("#uesppatEditShipAddressLine1").val(addressLine1);
@@ -111,6 +144,38 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	uesppatEditShipBox.children("#uesppatEditShipAddressCountry").val(addressCountry);
 	uesppatEditShipBox.children("#uesppatEditShipEmail").val(email);
 	uesppatEditShipBox.children("#uesppatEditShipAddressPhone").val(addressPhone);
+	uesppatEditShipBox.children("#uesppatEditShipRewardValue").val(rewardValue);
+	
+	if (status == "Custom" || status == "custom")
+	{
+		$("#uesppatEditShipName").attr("readonly", false);
+		$("#uesppatEditShipTier").attr("readonly", false);
+		$("#uesppatEditShipTierButton").attr("disabled", false);
+	}
+	else
+	{
+		$("#uesppatEditShipName").attr("readonly", true);
+		$("#uesppatEditShipTier").attr("readonly", true);
+		$("#uesppatEditShipTierButton").attr("disabled", true);
+	}
+}
+
+
+window.uesppatOnUpdateShipmentOrderNumberRequest = function(data)
+{
+	if (data && data.orderNumber) $('#uesppatEditShipOrderNumber').val(data.orderNumber);
+	if (data && data.orderSku) $('#uesppatEditShipOrderSku').val(data.orderSku);
+}
+
+
+window.uespPatOnUpdateShipmentTierButton = function()
+{
+	var tier = $("#uesppatEditShipTier").val();
+	var url = "/wiki/Special:UespPatreon/getordernumber?tier=" + tier;
+	
+	$.ajax({
+		url: url,
+	}).done(uesppatOnUpdateShipmentOrderNumberRequest);
 }
 
 
@@ -124,6 +189,7 @@ window.uesppatGetEditShipmentValues = function() {
 	
 	var orderNumber = uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val();
 	var orderSku = uesppatEditShipBox.children("#uesppatEditShipOrderSku").val();
+	var orderQnt = uesppatEditShipBox.children("#uesppatEditShipOrderQnt").val();
 	var shipMethod = uesppatEditShipBox.children("#uesppatEditShipMethod").val();
 	var addressName = uesppatEditShipBox.children("#uesppatEditShipAddressName").val();
 	var addressLine1 = uesppatEditShipBox.children("#uesppatEditShipAddressLine1").val();
@@ -134,19 +200,22 @@ window.uesppatGetEditShipmentValues = function() {
 	var addressCountry = uesppatEditShipBox.children("#uesppatEditShipAddressCountry").val();
 	var email = uesppatEditShipBox.children("#uesppatEditShipEmail").val();
 	var addressPhone = uesppatEditShipBox.children("#uesppatEditShipAddressPhone").val();
+	var rewardValue = uesppatEditShipBox.children("#uesppatEditShipRewardValue").val();
 	
 	cols.eq(4).text(orderNumber);
 	cols.eq(5).text(orderSku);
-	cols.eq(6).text(shipMethod);
-	cols.eq(7).text(addressName);
-	cols.eq(8).text(addressLine1);
-	cols.eq(9).text(addressLine2);
-	cols.eq(10).text(addressCity);
-	cols.eq(11).text(addressState);
-	cols.eq(12).text(addressZip);
-	cols.eq(13).text(addressCountry);
-	cols.eq(14).text(email);
-	cols.eq(15).text(addressPhone);
+	cols.eq(6).text(orderQnt);
+	cols.eq(7).text(shipMethod);
+	cols.eq(8).text(addressName);
+	cols.eq(9).text(addressLine1);
+	cols.eq(10).text(addressLine2);
+	cols.eq(11).text(addressCity);
+	cols.eq(12).text(addressState);
+	cols.eq(13).text(addressZip);
+	cols.eq(14).text(addressCountry);
+	cols.eq(15).text(email);
+	cols.eq(16).text(addressPhone);
+	cols.eq(17).text(rewardValue);
 	
 	uesppatUpdatetEditShipmentBadStatus(uesppatEditShipId);
 	
@@ -162,6 +231,7 @@ window.uesppatUpdatetEditShipmentBadStatus = function(shipmentId) {
 	
 	var orderNumber = uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val();
 	var orderSku = uesppatEditShipBox.children("#uesppatEditShipOrderSku").val();
+	var orderQnt = uesppatEditShipBox.children("#uesppatEditShipOrderQnt").val();
 	var addressName = uesppatEditShipBox.children("#uesppatEditShipAddressName").val();
 	var addressLine1 = uesppatEditShipBox.children("#uesppatEditShipAddressLine1").val();
 	var addressLine2 = uesppatEditShipBox.children("#uesppatEditShipAddressLine2").val();
@@ -189,9 +259,11 @@ window.uesppatCreateEditShipment = function() {
 	<div id='uesppatEditShipTitle'>Editing Shipment #</div>\
 	<div class='uesppatEditShipLabel'>Name</div><input type='text' id='uesppatEditShipName' readonly>\
 	<div class='uesppatEditShipLabel'>Tier</div><input type='text' id='uesppatEditShipTier' readonly>\
+	<button type='button' id='uesppatEditShipTierButton' disabled onclick='uespPatOnUpdateShipmentTierButton();'>Update</button>\
 	<div class='uesppatEditShipLabel'>Status</div><input type='text' id='uesppatEditShipStatus' readonly>\
 	<div class='uesppatEditShipLabel'>Order #</div><input type='text' id='uesppatEditShipOrderNumber' >\
 	<div class='uesppatEditShipLabel'>SKU</div><input type='text' id='uesppatEditShipOrderSku' >\
+	<div class='uesppatEditShipLabel'>Qnt</div><input type='text' id='uesppatEditShipOrderQnt' >\
 	<div class='uesppatEditShipLabel'>Ship Method</div><input type='text' id='uesppatEditShipMethod' >\
 	<div class='uesppatEditShipLabel'>Addressee</div><input type='text' id='uesppatEditShipAddressName' >\
 	<div class='uesppatEditShipLabel'>Line 1</div><input type='text' id='uesppatEditShipAddressLine1' >\
@@ -202,6 +274,7 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>Country</div><input type='text' id='uesppatEditShipAddressCountry' >\
 	<div class='uesppatEditShipLabel'>Email</div><input type='text' id='uesppatEditShipEmail' >\
 	<div class='uesppatEditShipLabel'>Phone</div><input type='text' id='uesppatEditShipAddressPhone' >\
+	<div class='uesppatEditShipLabel'>Reward Value</div><input type='text' id='uesppatEditShipRewardValue' >\
 	<br clear='all'/><p/>\
 	<button id='uesppatEditShipDeleteButton'>Delete</button>\
 	<button id='uesppatEditShipSaveButton'>Save</button>\
@@ -254,8 +327,6 @@ window.uesppatOnPatronShipmentRowClicked = function(e) {
 	var patronId = $(this).attr("patronid");
 	var shipmentId = $(this).attr("shipmentid");
 	
-	//console.log("uesppatOnPatronShipmentRowClicked", this, shipmentId);
-	
 	uesppatShowEditWall();
 	uesppatShowEditShipment(shipmentId, $(this));
 }
@@ -286,20 +357,23 @@ window.uesppatOnSaveNewShipments = function() {
 		var status = cols.eq(3).text();
 		var orderNumber = cols.eq(4).text();
 		var orderSku = cols.eq(5).text();
-		var shipMethod = cols.eq(6).text();
-		var addressName = cols.eq(7).text();
-		var addressLine1 = cols.eq(8).text();
-		var addressLine2 = cols.eq(9).text();
-		var addressCity = cols.eq(10).text();
-		var addressState = cols.eq(11).text();
-		var addressZip = cols.eq(12).text();
-		var addressCountry = cols.eq(13).text();
-		var email = cols.eq(14).text();
-		var addressPhone = cols.eq(15).text();
+		var orderQnt = cols.eq(6).text();
+		var shipMethod = cols.eq(7).text();
+		var addressName = cols.eq(8).text();
+		var addressLine1 = cols.eq(9).text();
+		var addressLine2 = cols.eq(10).text();
+		var addressCity = cols.eq(11).text();
+		var addressState = cols.eq(12).text();
+		var addressZip = cols.eq(13).text();
+		var addressCountry = cols.eq(14).text();
+		var email = cols.eq(15).text();
+		var addressPhone = cols.eq(16).text();
+		var rewardValue = cols.eq(17).text().replace("$", "");
 		
 		$("<input />").attr("type", "hidden").attr("name", "patreon_id[]").val(patronId).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "orderNumber[]").val(orderNumber).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "orderSku[]").val(orderSku).appendTo(form);
+		$("<input />").attr("type", "hidden").attr("name", "orderQnt[]").val(orderQnt).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "shipMethod[]").val(shipMethod).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "addressName[]").val(addressName).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "addressLine1[]").val(addressLine1).appendTo(form);
@@ -310,6 +384,7 @@ window.uesppatOnSaveNewShipments = function() {
 		$("<input />").attr("type", "hidden").attr("name", "addressCountry[]").val(addressCountry).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "email[]").val(email).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "addressPhone[]").val(addressPhone).appendTo(form);
+		$("<input />").attr("type", "hidden").attr("name", "rewardValue[]").val(rewardValue).appendTo(form);
 	});
 	
 	return true;
@@ -346,6 +421,24 @@ window.uesppatOnWikiPatronCopyClick = function()
 	}
 	
 	tempTextArea.remove();
+}
+
+
+window.uesppatOnGetShipOrderNumberRequest = function(data)
+{
+	if (data && data.orderNumber) $('input[name="shipmentOrder"]').val(data.orderNumber);
+	if (data && data.orderSku) $('input[name="shipmentSku"]').val(data.orderSku);
+}
+
+
+window.uesppatOnGetShipmentOrderNumberButton = function()
+{
+	var tier = $("#uespPatShipmentOrderTier").val();
+	var url = "/wiki/Special:UespPatreon/getordernumber?tier=" + tier;
+	
+	$.ajax({
+		url: url,
+	}).done(uesppatOnGetShipOrderNumberRequest);
 }
 
 

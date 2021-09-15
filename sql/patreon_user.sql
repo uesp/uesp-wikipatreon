@@ -22,6 +22,7 @@ CREATE TABLE /*$wgDBprefix*/patreon_user (
   addressZip TINYTEXT NOT NULL,
   addressCountry TINYTEXT NOT NULL,
   addressPhone TINYTEXT NOT NULL,
+  shirtSize TINYTEXT NOT NULL,
   KEY(patreon_id),
   KEY(wikiuser_id)
 ) /*$wgDBTableOptions*/;

@@ -129,6 +129,9 @@ class UespPatreonUpdate {
 			return false;
 		}
 		
+		//$output = print_r($response, true);
+		//file_put_contents("/tmp/response.json", $output);
+		
 		$this->patreonUsers = UespPatreonCommon::parsePatronData($response, false, false);
 		
 		$count = count($this->patreonUsers);
@@ -172,6 +175,8 @@ class UespPatreonUpdate {
 				$existingUser = &$this->existingUsers[$id];
 			}
 			
+			$existingUser['__isupdated'] = true;
+			
 				//TODO: Tier Check
 			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "") {
 				
@@ -211,6 +216,16 @@ class UespPatreonUpdate {
 			$existingUser['addressPhone'] = $user['addressPhone'];
 			
 			//print("Name: " . $user['full_name'] . "\n");
+		}
+		
+			/* Check for deleted users */
+		foreach ($this->existingUsers as &$user)
+		{
+			if ($user['__isupdated']) continue;
+			
+			//print("\tSetting {$user['name']} to deleted\n");
+			
+			$user['status'] = 'deleted_patron';
 		}
 		
 		return true;
