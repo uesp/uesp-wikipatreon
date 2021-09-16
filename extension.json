@@ -65,6 +65,8 @@
 				"uespPatreon.css"
 			],
 			"scripts": [
+				"uespPatreon-Countries.js",
+				"uespPatreon-Deminis.js",
 				"uespPatreon.js"
 			],
 			"targets": [

@@ -111,3 +111,10 @@
 .uespPatError {
 	background-color: #fcc;
 }
+
+#uesppatEditShipAddressCountryCode {
+	display: inline-block;
+	cursor: pointer;
+	color: #c00;
+	font-weight: bold;
+}

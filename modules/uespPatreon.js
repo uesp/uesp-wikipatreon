@@ -1,3 +1,5 @@
+
+
 window.uesppatOnShowTierSubmit = function() {
 	
 	$("#uesppat_showiron_hidden").prop("checked", !$("#uesppat_showiron").is(":checked"));
@@ -125,12 +127,14 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	var addressCountry = cols.eq(14).text();
 	var email = cols.eq(15).text();
 	var addressPhone = cols.eq(16).text();
-	var rewardValue = cols.eq(17).text();
+	var pledgeCadence = cols.eq(17).text();
+	var rewardValue = cols.eq(18).text();
 	
 	uesppatEditShipBox.children("#uesppatEditShipTitle").text("Editing Shipment #" + shipmentId);
 	uesppatEditShipBox.children("#uesppatEditShipName").val(name);
 	uesppatEditShipBox.children("#uesppatEditShipTier").val(tier);
 	uesppatEditShipBox.children("#uesppatEditShipStatus").val(status);
+	uesppatEditShipBox.children("#uesppatEditShipCadence").val(pledgeCadence);
 	uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val(orderNumber);
 	uesppatEditShipBox.children("#uesppatEditShipOrderSku").val(orderSku);
 	uesppatEditShipBox.children("#uesppatEditShipOrderQnt").val(orderQnt);
@@ -145,6 +149,37 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	uesppatEditShipBox.children("#uesppatEditShipEmail").val(email);
 	uesppatEditShipBox.children("#uesppatEditShipAddressPhone").val(addressPhone);
 	uesppatEditShipBox.children("#uesppatEditShipRewardValue").val(rewardValue);
+	uesppatEditShipBox.children("#uesppatEditShipAddressCountryCode").text("");
+	
+	var rewardList = $("#uespPatEditShipRewardList");
+	rewardList.children("option").remove();
+	
+	if (window.g_uesppatTierValues && window.g_uesppatYearlyTierValues)
+	{
+		var tierValues = g_uesppatTierValues;
+		if (pledgeCadence == 12) tierValues = g_uesppatYearlyTierValues;
+		
+		if (tierValues[tier])
+		{
+			for (var i in tierValues[tier])
+			{
+				var value = tierValues[tier][i];
+				
+				value = "$" + (value / 100).toFixed(2);
+				rewardList.append("<option>" + value + "</option>");
+			}
+		}
+	}
+	
+	if (!uesppatIsValidCountryCode(addressCountry))
+	{
+		var country = uesppatFindCountryCode(addressCountry);
+		
+		if (country)
+			uesppatEditShipBox.children("#uesppatEditShipAddressCountryCode").text(country);
+		else
+			uesppatEditShipBox.children("#uesppatEditShipAddressCountryCode").text("BAD");
+	}
 	
 	if (status == "Custom" || status == "custom")
 	{
@@ -215,12 +250,15 @@ window.uesppatGetEditShipmentValues = function() {
 	cols.eq(14).text(addressCountry);
 	cols.eq(15).text(email);
 	cols.eq(16).text(addressPhone);
-	cols.eq(17).text(rewardValue);
+	cols.eq(18).text(rewardValue);
 	
 	uesppatUpdatetEditShipmentBadStatus(uesppatEditShipId);
 	
 	return true;
 }
+
+
+window.g_uesppatShipmentBadMessages = {};
 
 
 window.uesppatUpdatetEditShipmentBadStatus = function(shipmentId) {
@@ -237,12 +275,40 @@ window.uesppatUpdatetEditShipmentBadStatus = function(shipmentId) {
 	var addressLine2 = uesppatEditShipBox.children("#uesppatEditShipAddressLine2").val();
 	var addressCountry = uesppatEditShipBox.children("#uesppatEditShipAddressCountry").val();
 	
-	var isBad = (orderNumber == "") || (orderSku == "") || (addressName == "" ) || (addressLine1 == "" && addressLine2 == "") || (addressCountry == "" );
+	var isBad = false;
+	var badMessages = [];
+	
+	if (orderNumber == "") {
+		isBad = true;
+		badMessages.push("Missing order number!");
+	} 
+	
+	if (orderSku == "") {
+		isBad = true;
+		badMessages.push("Missing order SKU!");
+	}
+	
+	if (addressName == "") {
+		isBad = true;
+		badMessages.push("Missing name!");
+	}
+	
+	if (addressLine1 == "" && addressLine2 == "") {
+		isBad = true;
+		badMessages.push("Missing address Line 1/2!");
+	}
+	if (addressCountry == "" || !uesppatIsValidCountryCode(addressCountry)) {
+		isBad = true;
+		badMessages.push("Missing or invalid address country!");
+	}
 	
 	if (isBad) 
 		rowElement.addClass("uesppatBadShipment");
 	else
 		rowElement.removeClass("uesppatBadShipment");
+	
+	g_uesppatShipmentBadMessages[uesppatEditShipId] = badMessages;
+	rowElement.attr("title", badMessages.join("\n"));
 }
 
 
@@ -261,6 +327,7 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>Tier</div><input type='text' id='uesppatEditShipTier' readonly>\
 	<button type='button' id='uesppatEditShipTierButton' disabled onclick='uespPatOnUpdateShipmentTierButton();'>Update</button>\
 	<div class='uesppatEditShipLabel'>Status</div><input type='text' id='uesppatEditShipStatus' readonly>\
+	<div class='uesppatEditShipLabel'>Cadence</div><input type='text' id='uesppatEditShipCadence' readonly>\
 	<div class='uesppatEditShipLabel'>Order #</div><input type='text' id='uesppatEditShipOrderNumber' >\
 	<div class='uesppatEditShipLabel'>SKU</div><input type='text' id='uesppatEditShipOrderSku' >\
 	<div class='uesppatEditShipLabel'>Qnt</div><input type='text' id='uesppatEditShipOrderQnt' >\
@@ -271,10 +338,12 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>City</div><input type='text' id='uesppatEditShipAddressCity' >\
 	<div class='uesppatEditShipLabel'>State</div><input type='text' id='uesppatEditShipAddressState' >\
 	<div class='uesppatEditShipLabel'>Postal Code</div><input type='text' id='uesppatEditShipAddressZip' >\
-	<div class='uesppatEditShipLabel'>Country</div><input type='text' id='uesppatEditShipAddressCountry' >\
+	<div class='uesppatEditShipLabel'>Country</div><input type='text' id='uesppatEditShipAddressCountry' > <div id='uesppatEditShipAddressCountryCode'></div>\
 	<div class='uesppatEditShipLabel'>Email</div><input type='text' id='uesppatEditShipEmail' >\
 	<div class='uesppatEditShipLabel'>Phone</div><input type='text' id='uesppatEditShipAddressPhone' >\
-	<div class='uesppatEditShipLabel'>Reward Value</div><input type='text' id='uesppatEditShipRewardValue' >\
+	<div class='uesppatEditShipLabel'>Reward Value</div><input type='text' id='uesppatEditShipRewardValue' list='uespPatEditShipRewardList' >\
+	<datalist id='uespPatEditShipRewardList'>\
+	</datalist>\
 	<br clear='all'/><p/>\
 	<button id='uesppatEditShipDeleteButton'>Delete</button>\
 	<button id='uesppatEditShipSaveButton'>Save</button>\
@@ -288,6 +357,51 @@ window.uesppatCreateEditShipment = function() {
 	$("#uesppatEditShipDeleteButton").on("click", uesppatOnEditShipDeleteClicked);
 	$("#uesppatEditShipSaveButton").on("click", uesppatOnEditShipSaveClicked);
 	$("#uesppatEditShipCancelButton").on("click", uesppatOnEditShipCancelClicked);
+	$("#uesppatEditShipRewardValue").on("focus", uesppatOnEditShipRewardListFocused);
+	$("#uesppatEditShipRewardValue").on("change", uesppatOnEditShipRewardListChanged);
+	$("#uesppatEditShipAddressCountry").on("input", uesppatOnEditShipCountryChanged);
+	$("#uesppatEditShipAddressCountryCode").on("click", uesppatOnEditShipCountryCodeClicked)
+}
+
+
+window.uesppatOnEditShipCountryCodeClicked = function()
+{
+	var code = $("#uesppatEditShipAddressCountryCode").text();
+	
+	if (code == "" || code == "BAD") return;
+	$("#uesppatEditShipAddressCountry").val(code);
+}
+
+
+window.uesppatOnEditShipCountryChanged = function()
+{
+	var input = $("#uesppatEditShipAddressCountry");
+	var addressCountry = input.val();
+	
+	if (!uesppatIsValidCountryCode(addressCountry))
+	{
+		var country = uesppatFindCountryCode(addressCountry);
+		
+		if (country) 
+			$("#uesppatEditShipAddressCountryCode").text(country);
+		else
+			$("#uesppatEditShipAddressCountryCode").text("BAD");
+	}
+	else
+	{
+		$("#uesppatEditShipAddressCountryCode").text("");
+	}
+}
+
+window.uesppatOnEditShipRewardListChanged = function()
+{
+	this.blur();
+}
+
+
+window.uesppatOnEditShipRewardListFocused = function() 
+{
+	this.value = '';
 }
 
 
@@ -368,7 +482,8 @@ window.uesppatOnSaveNewShipments = function() {
 		var addressCountry = cols.eq(14).text();
 		var email = cols.eq(15).text();
 		var addressPhone = cols.eq(16).text();
-		var rewardValue = cols.eq(17).text().replace("$", "");
+		var pledgeCadence = cols.eq(17).text();
+		var rewardValue = cols.eq(18).text().replace("$", "");
 		
 		$("<input />").attr("type", "hidden").attr("name", "patreon_id[]").val(patronId).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "orderNumber[]").val(orderNumber).appendTo(form);
@@ -442,10 +557,53 @@ window.uesppatOnGetShipmentOrderNumberButton = function()
 }
 
 
+window.uesppatCreateCountryCodeList = function()
+{
+	window.g_uesppatCountryCodeList = {};
+	
+	var newCountries = {};
+	
+	for (var country in g_uesppatCountryToCodes)
+	{
+		var lCountry = country.toLowerCase();
+		var code = g_uesppatCountryToCodes[country];
+		
+		g_uesppatCountryCodeList[code] = country;
+		newCountries[lCountry] = code;
+	}
+	
+	$.extend(g_uesppatCountryToCodes, newCountries);
+}
+
+
+window.uesppatIsValidCountryCode = function(code)
+{
+	code = code.toUpperCase();
+	return (g_uesppatCountryCodeList[code] != null);
+}
+
+
+window.uesppatFindCountryCode = function(country)
+{
+	var lCountry = country.toLowerCase();
+	
+	if (g_uesppatCountryToCodes[country] != null) return g_uesppatCountryToCodes[country];
+	if (g_uesppatCountryToCodes[lCountry] != null) return g_uesppatCountryToCodes[lCountry];
+	
+	//TODO: Partial matches?
+	
+	return false;
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatCreateShipments tr").not('thead tr').on("click", uesppatOnPatronShipmentRowClicked);
 	
 	$("#uespWikiPatronCopyButton").click(uesppatOnWikiPatronCopyClick);
 	
+	$("#uesppatRewardValue").on("focus", function() { this.value = ''; });
+	$("#uesppatRewardValue").on("change", function() { this.blur(); });
+	
+	uesppatCreateCountryCodeList();
 });
