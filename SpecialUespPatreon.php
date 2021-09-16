@@ -6,8 +6,6 @@
  *		- Process shipments
  * 		- Shirt size count
  * 		- Tier count
- * 		- Non-patreon shipments
- * 		- Edit infos
  */
 
 
@@ -36,7 +34,7 @@ class SpecialUespPatreon extends SpecialPage
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
 	
-		/* Actual values are stored and loaded from the database */
+		/* These are the default values only. Actual values are stored and loaded from the database */
 	public $orderSuffix = "21";
 	public $orderIndex = array( "Iron" => 1, "Steel" => 1, "Elven" => 1, "Orcish" => 1, "Glass" => 1, "Daedric" => 1, "Other" => 1);
 	public $orderSku = array(
@@ -1939,14 +1937,17 @@ class SpecialUespPatreon extends SpecialPage
 		$wikiLink = SpecialUespPatreon::getLink("showwiki");
 		
 		$wgOut->addHTML("<ul>");
+		$wgOut->addHTML("<li><b>Patron Info</b><ul>");
 		$wgOut->addHTML("<li><a href='$viewLink'>View Current Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$wikiLink'>View Wiki Patreon List</a></li>");
 		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
-		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
+		$wgOut->addHTML("</ul></li>");
 		
 		if ($this->hasPermission("shipment")) 
 		{
+			$wgOut->addHTML("<li><b>Shipments</b><ul>");
+			
 			$shipLink = SpecialUespPatreon::getLink("viewshipment");
 			$wgOut->addHTML("<li><a href='$shipLink'>View Shipments</a></li>");
 			
@@ -1955,8 +1956,20 @@ class SpecialUespPatreon extends SpecialPage
 			
 			$shipLink = SpecialUespPatreon::getLink("addshipments");
 			$wgOut->addHTML("<li><a href='$shipLink'>Add Multiple Non-Patreon Shipments</a></li>");
+			
+			$wgOut->addHTML("</ul></li>");
 		}
 		
+		$wgOut->addHTML("<li><b>Misc</b><ul>");
+		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
+		
+		if ($this->hasPermission("edit")) 
+		{
+			$infoLink = SpecialUespPatreon::getLink("editinfos");
+			$wgOut->addHTML("<li><a href='$infoLink'>Edit Infos</a></li>");
+		}
+		
+		$wgOut->addHTML("</ul></li>");
 		$wgOut->addHTML("</ul>");
 		
 		return true;
@@ -3108,6 +3121,165 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function saveInfos()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$result = true;
+		
+		$req = $this->getRequest();
+		$db = wfGetDB(DB_MASTER);
+		
+		$orderSuffix = $req->getVal("orderSuffix");
+		if ($orderSuffix) $result &= $db->update("patreon_info", [ 'v' => $orderSuffix ], [ 'k' => 'orderSuffix' ]); 
+		
+		$orderIndex = $req->getVal("orderIndexIron");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Iron' ]);
+		
+		$orderIndex = $req->getVal("orderIndexSteel");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Steel' ]);
+		
+		$orderIndex = $req->getVal("orderIndexElven");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Elven' ]);
+		
+		$orderIndex = $req->getVal("orderIndexOrcish");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Orcish' ]);
+		
+		$orderIndex = $req->getVal("orderIndexGlass");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Glass' ]);
+		
+		$orderIndex = $req->getVal("orderIndexDaedric");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Daedric' ]);
+		
+		$orderIndex = $req->getVal("orderIndexOther");
+		if ($orderIndex) $result &= $db->update("patreon_info", [ 'v' => $orderIndex ], [ 'k' => 'orderIndex_Other' ]);
+		
+		$orderSku = $req->getVal("orderSkuIron");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Iron' ]);
+		
+		$orderSku = $req->getVal("orderSkuSteel");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Steel' ]);
+		
+		$orderSku = $req->getVal("orderSkuElven");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Elven' ]);
+		
+		$orderSku = $req->getVal("orderSkuOrcish");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Orcish' ]);
+		
+		$orderSku = $req->getVal("orderSkuGlass");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Glass' ]);
+		
+		$orderSku = $req->getVal("orderSkuDaedric");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Daedric' ]);
+		
+		$orderSku = $req->getVal("orderSkuOther");
+		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Other' ]);
+		
+		if ($result) 
+			$wgOut->addHTML("Successfully updated all infos!");
+		else
+			$wgOut->addHTML("Error: Failed to update all infos!");
+		
+	}
+	
+	
+	private function showEditInfos()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$wgOut->addHTML("Editing Infos:");
+		$actionLink = $this->getLink("saveinfos");
+		$wgOut->addHTML("<form id='uespPatEditShipmentForm' method='post' action='$actionLink' >");
+		
+		$wgOut->addHTML("<table class='wikitable'><tbody>");
+		
+		$value = $this->escapeHtml($this->orderSuffix);
+		$wgOut->addHTML("<tr><th>Order Suffix</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSuffix' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Iron'];
+		$wgOut->addHTML("<tr><th>Order Index Iron</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexIron' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Steel'];
+		$wgOut->addHTML("<tr><th>Order Index Steel</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexSteel' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Elven'];
+		$wgOut->addHTML("<tr><th>Order Index Elven</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexElven' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Orcish'];
+		$wgOut->addHTML("<tr><th>Order Index Orcish</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexOrcish' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Glass'];
+		$wgOut->addHTML("<tr><th>Order Index Glass</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexGlass' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Daedric'];
+		$wgOut->addHTML("<tr><th>Order Index Daedric</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexDaedric' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->orderIndex['Other'];
+		$wgOut->addHTML("<tr><th>Order Index Other</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderIndexOther' value='$value' size='8' maxlength='8' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Iron']);
+		$wgOut->addHTML("<tr><th>Order SKU Iron</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuIron' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Steel']);
+		$wgOut->addHTML("<tr><th>Order SKU Steel</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuSteel' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Elven']);
+		$wgOut->addHTML("<tr><th>Order SKU Elven</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuElven' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Orcish']);
+		$wgOut->addHTML("<tr><th>Order SKU Orcish</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuOrcish' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Glass']);
+		$wgOut->addHTML("<tr><th>Order SKU Glass</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuGlass' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Daedric']);
+		$wgOut->addHTML("<tr><th>Order SKU Daedric</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuDaedric' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderSku['Other']);
+		$wgOut->addHTML("<tr><th>Order SKU Other</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderSkuOther' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$wgOut->addHTML("</tbody></table>");
+		$wgOut->addHTML("<input type='submit' value='Save Infos' /></form>");
+	}
+	
+	
 	private function getOrderNumber()
 	{
 		$wgOut = $this->getOutput();
@@ -3251,6 +3423,12 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'getordernumber':
 				$this->getOrderNumber();
+				break;
+			case 'editinfos':
+				$this->showEditInfos();
+				break;
+			case 'saveinfos':
+				$this->saveInfos();
 				break;
 			default:
 				$this->_default();
