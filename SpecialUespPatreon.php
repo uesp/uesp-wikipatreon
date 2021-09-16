@@ -3,9 +3,6 @@
  * TODO:
  * 		- Detect bad country codes in shipments.
  * 		- Shipment method drop down list.
- *		- Process shipments
- * 		- Shirt size count
- * 		- Tier count
  */
 
 
@@ -1935,6 +1932,7 @@ class SpecialUespPatreon extends SpecialPage
 		$newLink = SpecialUespPatreon::getLink("shownew");
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
 		$wikiLink = SpecialUespPatreon::getLink("showwiki");
+		$statsLink = SpecialUespPatreon::getLink("showstats");
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><b>Patron Info</b><ul>");
@@ -1961,6 +1959,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$wgOut->addHTML("<li><b>Misc</b><ul>");
+		$wgOut->addHTML("<li><a href='$statsLink'>Statistics</a></li>");
 		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
 		
 		if ($this->hasPermission("edit")) 
@@ -3315,6 +3314,114 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function showStats()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("view")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		$this->loadAllPatronDataDB(false, false);
+		
+		$tierCounts = array();
+		$tierCounts['Iron'] = 0;
+		$tierCounts['Steel'] = 0;
+		$tierCounts['Elven'] = 0;
+		$tierCounts['Orcish'] = 0;
+		$tierCounts['Glass'] = 0;
+		$tierCounts['Daedric'] = 0;
+		$tierCounts['Other'] = 0;
+		
+		$shirtSizes = array();
+		$shirtSizes['Small'] = 0;
+		$shirtSizes['Medium'] = 0;
+		$shirtSizes['Large'] = 0;
+		$shirtSizes['X-Large'] = 0;
+		$shirtSizes['XX-Large'] = 0;
+		$shirtSizes['XXX-Large'] = 0;
+		$shirtSizes['XXXX-Large'] = 0;
+		
+		$activeCount = 0;
+		$totalShirtCount = 0;
+		$shirtSizeTiers = array();
+		$shirtSizeTierList = array();
+		
+		foreach ($this->orderSku as $tier => $sku)
+		{
+			if (strpos($sku, "{shirtsize}") !== false)
+			{
+				$shirtSizeTiers[$tier] = true;
+				$shirtSizeTierList[] = $tier;
+			}
+		}
+		
+		foreach ($this->patrons as $patron)
+		{
+			if ($patron['status'] != "active_patron") continue;
+			
+			$tier = $patron['tier'];
+			if ($tier == "") $tier = "Other";
+			
+			$tierCounts[$tier]++;
+			
+			$shirtSize = $patron['shirtSize'];
+			if ($shirtSize == "?") $shirtSize = "";
+			
+			if ($shirtSizeTiers[$tier]) 
+			{
+				$shirtSizes[$shirtSize]++;
+				$totalShirtCount++;
+			}
+			
+			$activeCount++;
+		}
+		
+		$wgOut->addHTML("Showing stats for all active patrons:");
+		$wgOut->addHTML("<ul>");
+		$wgOut->addHTML("<li><b>Active Patrons =</b> $activeCount</li>");
+		$wgOut->addHTML("<li><b>Tier Counts</b><ul>");
+		
+		foreach ($tierCounts as $tier => $count)
+		{
+			$pct = floor($count / $activeCount * 100);
+			$wgOut->addHTML("<li>$tier = $count ($pct%)</li>");
+		}
+		
+		$wgOut->addHTML("</ul></li>");
+		$wgOut->addHTML("<li><b>Cumulative Tier Counts</b><ul>");
+		$baseCount = $activeCount - $tierCounts['Other'];
+		
+		foreach ($tierCounts as $tier => $count)
+		{
+			if ($tier == "Other") continue;
+			
+			$thisCount = $baseCount;
+			$pct = floor($thisCount / $activeCount * 100);
+			$wgOut->addHTML("<li>$tier = $thisCount ($pct%)</li>");
+			$baseCount -= $count;
+		}
+		
+		$wgOut->addHTML("</ul></li>");
+		$tierList = implode(", ", $shirtSizeTierList);
+		$wgOut->addHTML("<li><b>Shirt Sizes ($tierList)</b><ul>");
+		
+		foreach ($shirtSizes as $size => $count)
+		{
+			if ($size == "") $size = "&lt;Not Set&gt;";
+			$pct = floor($count / $totalShirtCount * 100);
+			$wgOut->addHTML("<li>$size = $count ($pct%)</li>");
+		}
+		
+		$wgOut->addHTML("<li><b>Total = $totalShirtCount</b></li>");
+		$wgOut->addHTML("</ul></li>");
+		$wgOut->addHTML("</ul>");
+	}
+	
+	
 	private function _default() 
 	{
 		return $this->showMainMenu();
@@ -3429,6 +3536,9 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'saveinfos':
 				$this->saveInfos();
+				break;
+			case 'showstats':
+				$this->showStats();
 				break;
 			default:
 				$this->_default();
