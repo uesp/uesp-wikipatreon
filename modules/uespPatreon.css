@@ -90,6 +90,11 @@
 	border: solid 1px #bbb;
 }
 
+#uespPatEditShipmentForm input[readonly] {
+	background-color: #eee;
+	border: solid 1px #bbb;
+}
+
 #uespWikiPatronCopyButton {
 	float: right;
 }
@@ -117,4 +122,16 @@
 	cursor: pointer;
 	color: #c00;
 	font-weight: bold;
+}
+
+#uesppatEditShipDeminsValue {
+	display: inline-block;
+	color: #c00;
+	font-weight: normal;
+}
+
+#uesppatEditShipmentDeminis {
+	display: inline-block;
+	color: #c00;
+	font-weight: normal;
 }

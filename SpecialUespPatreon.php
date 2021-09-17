@@ -130,6 +130,29 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	public static function getTierRewardShippingValue($tier)
+	{
+		$tier = strtolower($tier);
+		$value = 0;
+		
+			//TODO: Put in database?
+		if ($tier == "iron")
+			$value = 200;
+		elseif ($tier == "steel")
+			$value = 1000;
+		elseif ($tier == "elven")
+			$value = 2000;
+		elseif ($tier == "orcish")
+			$value = 4500;
+		elseif ($tier == "glass")
+			$value = 4500;
+		elseif ($tier == "daedric")
+			$value = 4500;
+		
+		return $value;
+	}
+	
+	
 	public static function getPreferenceLink() {
 		//return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
 		return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
@@ -2049,7 +2072,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function createNewShipments() 
+	private function createNewShipments()
 	{
 		$index = 1;
 		
@@ -2083,7 +2106,7 @@ class SpecialUespPatreon extends SpecialPage
 				$shipment['orderSku'] = $this->makeOrderSku($patron);
 				$shipment['orderQnt'] = 1;
 				$shipment['shipMethod'] = "";
-				
+				$shipment['shippingValue'] = 0;
 				$shipment['rewardValue'] = 0;
 			}
 			else 
@@ -2107,7 +2130,7 @@ class SpecialUespPatreon extends SpecialPage
 				$shipment['orderSku'] = $this->makeOrderSku($patron);
 				$shipment['orderQnt'] = 1;
 				$shipment['shipMethod'] = "";
-				
+				$shipment['shippingValue'] = $this->getTierRewardShippingValue($patron['tier']);
 				$shipment['rewardValue'] = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence']);
 				
 				if ($shipment['addressName'] == "" || $shipment['addressLine1'] == "" || $shipment['addressCountry'] == "" || $shipment['tier'] == "") $shipment['__isbad'] = true;
@@ -2219,7 +2242,7 @@ class SpecialUespPatreon extends SpecialPage
 			$shipment['orderSku'] = $this->makeOrderSku(null, $tier, $shirtSize);
 			$shipment['orderQnt'] = 1;
 			$shipment['shipMethod'] = "";
-			
+			$shipment['shippingValue'] = $this->getTierRewardShippingValue($tier);
 			$shipment['rewardValue'] = 0;
 			
 			if ($shipment['addressName'] == "" || $shipment['addressLine1'] == "" || $shipment['addressCountry'] == "" || $shipment['tier'] == "") $shipment['__isbad'] = true;
@@ -2787,11 +2810,25 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<td><input type='text' name='shipmentPhone' value='$shipPhone' size='24' maxlength='24' /></td>");
 		$wgOut->addHTML("</tr>");
 		
+		$tier = "Other";
+		$matchResult = preg_match('#([a-zA-Z]+)#', $shipment['orderNumber'], $matches);
+		if ($matchResult) $tier = $matches[1];
+		$shipValue = $this->getTierRewardShippingValue($tier);
+		$shipValue = "$" . number_format($shipValue/100, 2);
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Ship Value</th>");
+		$wgOut->addHTML("<td><input type='text' name='shipmentValue' value='$shipValue' size='8' maxlength='8' readonly /> <div id='uesppatEditShipmentDeminis'></div></td>");
+		$wgOut->addHTML("</tr>");
+		
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<td colspan='10'><input type='submit' value='Save Shipment' /></td>");
 		$wgOut->addHTML("</tr>");
 		
 		$wgOut->addHTML("</tbody></table></form>");
+		
+		$this->outputTierRewardValuesJS();
+		$this->outputTierShippingValuesJS();
 	}
 	
 	
@@ -3040,6 +3077,22 @@ class SpecialUespPatreon extends SpecialPage
 		$this->outputCreateShipmentTable();
 		
 		$this->outputTierRewardValuesJS();
+		$this->outputTierShippingValuesJS();
+	}
+	
+	
+	private function getTierShippingValues()
+	{
+		$tierValues = array();
+		
+		$tierValues["Iron"] = $this->getTierRewardShippingValue("Iron");
+		$tierValues["Steel"] = $this->getTierRewardShippingValue("Steel");
+		$tierValues["Elven"] = $this->getTierRewardShippingValue("Elven");
+		$tierValues["Orcish"] = $this->getTierRewardShippingValue("Orcish");
+		$tierValues["Glass"] = $this->getTierRewardShippingValue("Glass");
+		$tierValues["Daedric"] = $this->getTierRewardShippingValue("Daedric");
+		
+		return $tierValues;
 	}
 	
 	
@@ -3083,6 +3136,20 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("window.g_uesppatTierValues = $tierJson;");
 		$wgOut->addHTML("window.g_uesppatYearlyTierValues = $yearlyJson;");
+		
+		$wgOut->addHTML("</script>");
+	}
+	
+	
+	private function outputTierShippingValuesJS()
+	{
+		$wgOut = $this->getOutput();
+		
+		$tierValues = $this->getTierShippingValues();
+		
+		$wgOut->addHTML("<script type='text/javascript'>");
+		$tierJson = json_encode($tierValues);
+		$wgOut->addHTML("window.g_uesppatTierShippingValues = $tierJson;");
 		
 		$wgOut->addHTML("</script>");
 	}
@@ -3136,6 +3203,7 @@ class SpecialUespPatreon extends SpecialPage
 			$orderQnt = $shipment['orderQnt'];
 			$shipMethod = $this->escapeHtml($shipment['shipMethod']);
 			$pledgeCadence = $shipment['pledgeCadence'];
+			$shippingValue = number_format($shipment['shippingValue'] / 100, 2);
 			
 			$rewardValue = '';
 			if ($shipment['rewardValue'] > 0) $rewardValue = '$' . number_format($shipment['rewardValue']/100, 2);
@@ -3143,7 +3211,7 @@ class SpecialUespPatreon extends SpecialPage
 			$class = "";
 			if ($shipment['__isbad']) $class = "uesppatBadShipment";
 			
-			$wgOut->addHTML("<tr class='$class' patronid='$patronId' shipmentid='$id'>");
+			$wgOut->addHTML("<tr class='$class' patronid='$patronId' shipmentid='$id' shippingvalue='$shippingValue'>");
 			$wgOut->addHTML("<td>$index</td>");
 			$wgOut->addHTML("<td>$name</td>");
 			$wgOut->addHTML("<td>$tier</td>");
@@ -3642,3 +3710,4 @@ class SpecialUespPatreon extends SpecialPage
 		unlink( $filePath );
 		die;
  */
+	

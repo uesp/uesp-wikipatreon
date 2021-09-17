@@ -103,6 +103,7 @@ window.uesppatShowEditShipment = function(shipmentId, rowElement) {
 	uesppatSetEditShipmentValues(shipmentId, rowElement);
 	
 	uesppatEditShipBox.show();
+	uespPatOnEditShipUpdateDeminisValue();
 }
 
 
@@ -129,6 +130,7 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	var addressPhone = cols.eq(16).text();
 	var pledgeCadence = cols.eq(17).text();
 	var rewardValue = cols.eq(18).text();
+	var shippingValue = rowElement.attr("shippingvalue");
 	
 	uesppatEditShipBox.children("#uesppatEditShipTitle").text("Editing Shipment #" + shipmentId);
 	uesppatEditShipBox.children("#uesppatEditShipName").val(name);
@@ -150,6 +152,7 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	uesppatEditShipBox.children("#uesppatEditShipAddressPhone").val(addressPhone);
 	uesppatEditShipBox.children("#uesppatEditShipRewardValue").val(rewardValue);
 	uesppatEditShipBox.children("#uesppatEditShipAddressCountryCode").text("");
+	uesppatEditShipBox.children("#uesppatEditShipValue").val(shippingValue);
 	
 	var rewardList = $("#uespPatEditShipRewardList");
 	rewardList.children("option").remove();
@@ -252,7 +255,7 @@ window.uesppatGetEditShipmentValues = function() {
 	cols.eq(16).text(addressPhone);
 	cols.eq(18).text(rewardValue);
 	
-	uesppatUpdatetEditShipmentBadStatus(uesppatEditShipId);
+	uesppatUpdateEditShipmentBadStatus(uesppatEditShipId);
 	
 	return true;
 }
@@ -261,10 +264,18 @@ window.uesppatGetEditShipmentValues = function() {
 window.g_uesppatShipmentBadMessages = {};
 
 
-window.uesppatUpdatetEditShipmentBadStatus = function(shipmentId) {
-	var rowElement = $("#uesppatCreateShipments tr[shipmentid='" + uesppatEditShipId + "']");
+window.uesppatUpdateEditShipmentBadStatus = function(shipmentId) 
+{
+	var rowElement = $("#uesppatCreateShipments tr[shipmentid='" + shipmentId + "']");
 	if (rowElement.length == 0) return false;
 	
+	uesppatUpdateEditShipmentBadStatusRow(rowElement);
+}
+
+
+window.uesppatUpdateEditShipmentBadStatusRow = function(rowElement)
+{
+	var shipmentId = rowElement.attr("shipmentid");
 	var cols = rowElement.children("td");
 	
 	var orderNumber = uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val();
@@ -307,7 +318,7 @@ window.uesppatUpdatetEditShipmentBadStatus = function(shipmentId) {
 	else
 		rowElement.removeClass("uesppatBadShipment");
 	
-	g_uesppatShipmentBadMessages[uesppatEditShipId] = badMessages;
+	g_uesppatShipmentBadMessages[shipmentId] = badMessages;
 	rowElement.attr("title", badMessages.join("\n"));
 }
 
@@ -342,6 +353,8 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>Email</div><input type='text' id='uesppatEditShipEmail' >\
 	<div class='uesppatEditShipLabel'>Phone</div><input type='text' id='uesppatEditShipAddressPhone' >\
 	<div class='uesppatEditShipLabel'>Reward Value</div><input type='text' id='uesppatEditShipRewardValue' list='uespPatEditShipRewardList' >\
+	<div class='uesppatEditShipLabel'>Shipping Value</div><input type='text' id='uesppatEditShipValue' readonly >\
+	<div id='uesppatEditShipDeminsValue'></div>\
 	<datalist id='uespPatEditShipRewardList'>\
 	</datalist>\
 	<br clear='all'/><p/>\
@@ -361,6 +374,32 @@ window.uesppatCreateEditShipment = function() {
 	$("#uesppatEditShipRewardValue").on("change", uesppatOnEditShipRewardListChanged);
 	$("#uesppatEditShipAddressCountry").on("input", uesppatOnEditShipCountryChanged);
 	$("#uesppatEditShipAddressCountryCode").on("click", uesppatOnEditShipCountryCodeClicked)
+	$("#uesppatEditShipRewardValue").on("input", uespPatOnEditShipUpdateDeminisValue);
+}
+
+
+window.uespPatOnEditShipUpdateDeminisValue = function()
+{
+	var deminisElement = $("#uesppatEditShipDeminsValue");
+	var countryCode = $("#uesppatEditShipAddressCountry").val();
+	var deminis = uesppatGetDeminisValue(countryCode);
+	var rewardValue = $("#uesppatEditShipValue").val().replace("$", "");
+	
+	if (deminis < 0)
+	{
+		deminisElement.text("");
+		$("#uesppatEditShipValue").css("background-color", "");
+	}
+	else 
+	{
+		if (deminis <= rewardValue)
+			$("#uesppatEditShipValue").css("background-color", "#fcc");
+		else
+			$("#uesppatEditShipValue").css("background-color", "");
+		
+		deminisElement.text("$" + deminis.toFixed(2));
+	}
+	
 }
 
 
@@ -370,12 +409,14 @@ window.uesppatOnEditShipCountryCodeClicked = function()
 	
 	if (code == "" || code == "BAD") return;
 	$("#uesppatEditShipAddressCountry").val(code);
+	
+	uespPatOnEditShipUpdateDeminisValue();
 }
 
 
 window.uesppatOnEditShipCountryChanged = function()
 {
-	var input = $("#uesppatEditShipAddressCountry");
+	var input = $("#uesppa tEditShipAddressCountry");
 	var addressCountry = input.val();
 	
 	if (!uesppatIsValidCountryCode(addressCountry))
@@ -391,6 +432,8 @@ window.uesppatOnEditShipCountryChanged = function()
 	{
 		$("#uesppatEditShipAddressCountryCode").text("");
 	}
+	
+	uespPatOnEditShipUpdateDeminisValue();
 }
 
 window.uesppatOnEditShipRewardListChanged = function()
@@ -596,6 +639,92 @@ window.uesppatFindCountryCode = function(country)
 }
 
 
+window.uesppatGetDeminisRecord = function(code)
+{
+	return g_uesppatDeminis[code.toUpperCase()];
+}
+
+
+window.uesppatGetDeminisValue = function(code)
+{
+	var deminis = g_uesppatDeminis[code.toUpperCase()];
+	if (deminis == null) return -1;
+	return deminis.TaxUSD;
+}
+
+
+window.uesppatDoesShipmentExceedDeminisValue = function(countryCode, shipmentValue)
+{
+	if (shipmentValue == "" || shipmentValue <= 0) return false;
+	
+	var deminis = uesppatGetDeminisRecord(countryCode);
+	if (deminis == null) return false;
+
+	return shipmentValue >= deminis.TaxUSD;
+}
+
+
+window.uesppatUpdateCreateShipments = function()
+{
+	var rows = $("#uesppatCreateShipments").children("tr");
+	
+	rows.each(function() {
+		uesppatUpdateEditShipmentBadStatusRow(this);
+	});
+	
+}
+
+
+window.uesppatOnEditShipmentOrderChange = function()
+{
+	var order = $(this).val();
+	var match = order.match(/[a-zA-z]+/);
+	var tier = "Other";
+	var shipValue = 0;
+	
+	if (match) tier = match[0];
+	if (window.g_uesppatTierShippingValues && g_uesppatTierShippingValues[tier]) shipValue = g_uesppatTierShippingValues[tier];
+	
+	var shipFmt = "$" + (shipValue/100).toFixed(2);
+	$("input[name='shipmentValue']").val(shipFmt);
+	
+	uespatUpdateEditShipmentDeminis();
+}
+
+
+window.uespatOnEditShipmentCountryChange = function()
+{
+	uespatUpdateEditShipmentDeminis();
+}
+
+
+window.uespatUpdateEditShipmentDeminis = function()
+{
+	var shipmentValue = $("input[name='shipmentValue']").val();
+	var country = $("input[name='shipmentCountry']").val();
+	var deminisElement = $("#uesppatEditShipmentDeminis");
+	
+	var deminisValue = uesppatGetDeminisValue(country);
+	shipmentValue = parseFloat(shipmentValue.replace("$", ""));
+	
+	if (deminisValue < 0)
+	{
+		deminisElement.text("");
+		$("input[name='shipmentValue']").css("background-color", "");
+	}
+	else if (deminisValue <= shipmentValue)
+	{
+		deminisElement.text("$" + deminisValue.toFixed(2));
+		$("input[name='shipmentValue']").css("background-color", "#fcc");
+	}
+	else
+	{
+		deminisElement.text("$" + deminisValue.toFixed(2));
+		$("input[name='shipmentValue']").css("background-color", "");
+	}
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatCreateShipments tr").not('thead tr').on("click", uesppatOnPatronShipmentRowClicked);
@@ -606,4 +735,14 @@ $(function() {
 	$("#uesppatRewardValue").on("change", function() { this.blur(); });
 	
 	uesppatCreateCountryCodeList();
+	
+	if ($("#uesppatCreateShipments").children("tr").length > 0)
+	{
+		uesppatUpdateCreateShipments();
+	}
+	
+	$("#uespPatEditShipmentForm input[name='shipmentOrder']").on("change", uesppatOnEditShipmentOrderChange);
+	$("#uespPatEditShipmentForm input[name='shipmentCountry']").on("input", uespatOnEditShipmentCountryChange);
+	
+	if ($("#uespPatEditShipmentForm").length > 0) uespatUpdateEditShipmentDeminis();
 });
