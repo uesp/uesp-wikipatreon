@@ -1976,6 +1976,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$viewLink = SpecialUespPatreon::getLink("list");
+		$activeLink = SpecialUespPatreon::getLink("list", "onlyactive=1");
 		$linkLink = SpecialUespPatreon::getLink("link");
 		$newLink = SpecialUespPatreon::getLink("shownew");
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
@@ -1984,7 +1985,8 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><b>Patron Info</b><ul>");
-		$wgOut->addHTML("<li><a href='$viewLink'>View Current Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$activeLink'>View Active Patrons</a></li>");
+		$wgOut->addHTML("<li><a href='$viewLink'>View All Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
 		$wgOut->addHTML("<li><a href='$wikiLink'>View Wiki Patreon List</a></li>");
 		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
@@ -3525,7 +3527,14 @@ class SpecialUespPatreon extends SpecialPage
 			$activeCount++;
 		}
 		
-		$wgOut->addHTML("Showing stats for all active patrons:");
+		$this->addBreadcrumb("Home", $this->getLink());
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$wgOut->addHTML("Showing stats for all active patrons.");
+		$lastUpdate = $this->getLastUpdateFormat();
+		$wgOut->addHTML(" Patron data last updated $lastUpdate ago. ");
+		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><b>Active Patrons =</b> $activeCount</li>");
 		$wgOut->addHTML("<li><b>Tier Counts</b><ul>");
