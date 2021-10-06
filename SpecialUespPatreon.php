@@ -1696,6 +1696,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th class='unsortable'><input id='uesppatPatronTableHeaderCheckbox' type='checkbox' value='0' /></th>");
 		$wgOut->addHTML("<th>Full Name</th>");
+		$wgOut->addHTML("<th>Wiki User</th>");
 		$wgOut->addHTML("<th>Tier</th>");
 		$wgOut->addHTML("<th>Status</th>");
 		$wgOut->addHTML("<th>Pledge Type</th>");
@@ -1734,6 +1735,24 @@ class SpecialUespPatreon extends SpecialPage
 			$reward = '$' . number_format($patron['totalRewardValue'] / 100, 2);
 			$netDue = $patron['lifetimePledgeCents'] - $patron['totalRewardValue'];
 			$netDueText = '$' . number_format($netDue / 100, 2);
+			
+			$wikiUserId = $patron['wikiuser_id'];
+			$wikiUserText = $wikiUserId;
+			
+			if ($wikiUserText <= 0) 
+			{
+				$wikiUserText = "";
+				$wikiUser = null;
+			}
+			else
+			{
+				$wikiUser = User::newFromId($wikiUserId);
+			}
+			
+			if ($wikiUser)
+			{
+				$wikiUserText = "<a href='/wiki/User:" . $wikiUser->getName() . "'>" . $wikiUser->getName() . "</a>";
+			}
 			
 				/* Doesn't work currently */
 			if (false && $this->hasPermission("edit")) {
@@ -1784,6 +1803,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<tr>");
 			$wgOut->addHTML("<td>$checkbox</td>");
 			$wgOut->addHTML("<td>$name</td>");
+			$wgOut->addHTML("<td>$wikiUserText</td>");
 			$wgOut->addHTML("<td>$tier</td>");
 			$wgOut->addHTML("<td class='$statusClass'>$status</td>");
 			$wgOut->addHTML("<td>$pledgeType</td>");
