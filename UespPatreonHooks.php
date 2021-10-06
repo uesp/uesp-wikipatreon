@@ -22,7 +22,8 @@ class UespPatreonHooks {
 	 */
 	public static function userGetDefaultOptions( &$defaultOptions ) {
 		
-		$defaultOptions['uesppatreon-shirtsize'] = 'Large';
+			// If this is set any setting of "Large" will not be stored in the database
+		//$defaultOptions['uesppatreon-shirtsize'] = 'Large';
 		
 		return true;
 	}
