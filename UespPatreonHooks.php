@@ -22,8 +22,7 @@ class UespPatreonHooks {
 	 */
 	public static function userGetDefaultOptions( &$defaultOptions ) {
 		
-			// If this is set any setting of "Large" will not be stored in the database
-		//$defaultOptions['uesppatreon-shirtsize'] = 'Large';
+		$defaultOptions['uesppatreon-shirtsize'] = 'Not Set';
 		
 		return true;
 	}
@@ -39,19 +38,19 @@ class UespPatreonHooks {
 	{
 		$patreonId = SpecialUespPatreon::loadPatreonUserId();
 		
-        if ($patreonId <= 0) {
-        	$text = wfMessage( "uesppatreon-link" )->parse();
-        	$authorizationUrl = SpecialUespPatreon::getLink("redirect");
-        }
-       	else {
-       		$text = wfMessage( "uesppatreon-unlink" )->parse();
-       		$authorizationUrl = SpecialUespPatreon::getLink("unlink");
-       	}
-       	
-        $text = str_replace("https://patreon.com", $authorizationUrl, $text);
-        
-        $text .= wfMessage( "uesppatreon-linkmsg" )->parse(); 
-        		
+		if ($patreonId <= 0) {
+			$text = wfMessage( "uesppatreon-link" )->parse();
+			$authorizationUrl = SpecialUespPatreon::getLink("redirect");
+		}
+		else {
+			$text = wfMessage( "uesppatreon-unlink" )->parse();
+			$authorizationUrl = SpecialUespPatreon::getLink("unlink");
+		}
+		
+		$text = str_replace("https://patreon.com", $authorizationUrl, $text);
+		
+		$text .= wfMessage( "uesppatreon-linkmsg" )->parse(); 
+		
 		$preferences['uesppatreon-link'] =
 			array(
 				'type' => 'info',
@@ -79,9 +78,9 @@ class UespPatreonHooks {
 			array(
 				'type' => 'select',
 				'label' => 'Select your preferred shirt size:',
-				//'default' => 'Large',	// Doesn't seem to work
 				'section' => 'uesppatreon/uesppatreon-options',
 				'options' => [
+						'Not Set' => 'Not Set',
 						'Small' => 'Small',
 						'Medium' => 'Medium',
 						'Large' => 'Large',
