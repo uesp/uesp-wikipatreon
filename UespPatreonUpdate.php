@@ -129,8 +129,11 @@ class UespPatreonUpdate {
 			return false;
 		}
 		
-		//$output = print_r($response, true);
-		//file_put_contents("/tmp/response.json", $output);
+		/* Debug Output
+		$output = print_r($response, true);
+		print($output);
+		file_put_contents("/tmp/response.json", $output);
+		exit(); //*/
 		
 		$this->patreonUsers = UespPatreonCommon::parsePatronData($response, false, false);
 		
@@ -177,7 +180,7 @@ class UespPatreonUpdate {
 			
 			$existingUser['__isupdated'] = true;
 			
-				//TODO: Tier Check
+				// TODO: Tier Check
 			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "") {
 				
 					// Don't update tier changes on new or non-active users
@@ -196,8 +199,12 @@ class UespPatreonUpdate {
 			$existingUser['email'] = $user['email'];
 			$existingUser['discord'] = $user['discord'];
 			
+			//print("{$user['name']} : {$user['status']} : {$user['tier']} : {$existingUser['tier']}\n");
+			
 				// Don't change tiers for non-active users
-			if ( !($user['tier'] == "" && $user['status'] != "active_patron") ) {
+			//if ( !($user['tier'] == "" && $user['status'] != "active_patron") ) {
+			if ($user['tier'] != "" || $user['status'] == "active_patron") {
+				//print("\tUpdated User Tier\n");
 				$existingUser['tier'] = $user['tier'];
 			}
 			
@@ -206,6 +213,7 @@ class UespPatreonUpdate {
 			$existingUser['note'] = $user['note'];
 			$existingUser['lifetimePledgeCents'] = $user['lifetimePledgeCents'];
 			$existingUser['startDate'] = $user['startDate'];
+			$existingUser['lastChargeDate'] = $user['lastChargeDate'];
 			$existingUser['addressName'] = $user['addressName'];
 			$existingUser['addressLine1'] = $user['addressLine1'];
 			$existingUser['addressLine2'] = $user['addressLine2'];
@@ -258,7 +266,7 @@ class UespPatreonUpdate {
 	
 	public function updateUsers() {
 		
-		$COLNAMES = array("patreon_id", "name", "email", "discord", "tier", "status", "pledgeCadence", "note", "lifetimePledgeCents", "startDate", "addressName", "addressLine1", "addressLine2", 
+		$COLNAMES = array("patreon_id", "name", "email", "discord", "tier", "status", "pledgeCadence", "note", "lifetimePledgeCents", "startDate", "lastChargeDate", "addressName", "addressLine1", "addressLine2", 
 							"addressCity", "addressState", "addressZip", "addressCountry", "addressPhone");
 		$newUsers = 0;
 		$updatedUsers = 0;

@@ -1,8 +1,9 @@
 <?php
 /*
  * TODO:
- * 		- Shipment method drop down list.
  * 		- Auto shipping method by country and de-minimis
+ * 		- Select all "due" rows
+ * 		- Delete shipment
  */
 
 
@@ -26,7 +27,27 @@ class SpecialUespPatreon extends SpecialPage
 				"XXXX-Large",
 			);
 	
-	public static $YEARLY_DISCOUNT = 0.10;			//TODO: Put in database?
+		// TODO: Move to database?
+	public $SHIP_METHODS = array(
+			"Asendia Fully Tracked",
+			"Asendia Country Tracked",
+			"Asendia Tracked Duties Paid",
+			"Asendia e-PAQ Select",
+			"USPS ePacket Canada Duties Paid",
+			"USPS First Class Mail International",
+			"USPS Priority Mail International",
+			"USPS Priority Mail Canada Duties Paid",
+			"USPS Express Mail International",
+			"USPS First Class Mail",
+			"USPS Priority Mail",
+	);
+	
+	public static $YEARLY_DISCOUNT = 0.10;			// TODO: Put in database?
+	
+	public static $REWARD_YEAR = 2021;				// TODO: Put in database?
+	public static $REWARD_YEAR_START = "20 November 2021";
+	public static $REWARD_YEAR_END = "30 June 2022";
+	public static $REWARD_CHARGE_DATE = "2 January 2021";
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
@@ -38,13 +59,15 @@ class SpecialUespPatreon extends SpecialPage
 			"Iron" => "UESPIron{suffix}",
 			"Steel" => "UESPSteel{suffix}",
 			"Elven" => "UESPElven{suffix}",
-			"Orcish" => "UESPOrcish{suffix}-{shirtsize}",
-			"Glass" => "UESPOrcish{suffix}-{shirtsize}",
-			"Daedric" => "UESPOrcish{suffix}-{shirtsize}",
+			"Orcish" => "UESPOrcish{suffix}{shirtsize}",
+			"Glass" => "UESPOrcish{suffix}{shirtsize}",
+			"Daedric" => "UESPOrcish{suffix}{shirtsize}",
 			"Other" => "UESPOther{suffix}");
 	
 	public $inputAction = "";
-	public $inputOnlyActive = 0;
+	public $inputShowActive = 1;
+	public $inputShowInactive = 1;
+	public $inputValidAddress = 0;
 	public $inputShowNewPeriod = 7;
 	public $inputHideTierIron = 0;
 	public $inputHideTierSteel = 0;
@@ -137,17 +160,17 @@ class SpecialUespPatreon extends SpecialPage
 		
 			//TODO: Put in database?
 		if ($tier == "iron")
-			$value = 200;
+			$value = 100;
 		elseif ($tier == "steel")
-			$value = 1000;
+			$value = 300;
 		elseif ($tier == "elven")
 			$value = 2000;
 		elseif ($tier == "orcish")
-			$value = 4500;
+			$value = 5500;
 		elseif ($tier == "glass")
-			$value = 4500;
+			$value = 5500;
 		elseif ($tier == "daedric")
-			$value = 4500;
+			$value = 5500;
 		
 		return $value;
 	}
@@ -162,8 +185,8 @@ class SpecialUespPatreon extends SpecialPage
 	public static function getLink($param = null, $query = null) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 		
-		$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
-		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
 		if ($query) $link .= "?" . $query;
@@ -238,9 +261,9 @@ class SpecialUespPatreon extends SpecialPage
 		if ($shirtSize == "medium"    || $shirtSize == "m") return "M";
 		if ($shirtSize == "large"     || $shirtSize == "l") return "L";
 		if ($shirtSize == "xlarge"    || $shirtSize == "x-large" || $shirtSize == "xl") return "XL";
-		if ($shirtSize == "xxlarge"   || $shirtSize == "xx-large" || $shirtSize == "xxl" || $shirtSize == "2xl" || $shirtSize == "2x-large" || $shirtSize == "2xlarge") return "2XL";
-		if ($shirtSize == "xxxlarge"  || $shirtSize == "xxx-large" || $shirtSize == "xxxl" || $shirtSize == "3xl" || $shirtSize == "3x-large" || $shirtSize == "3xlarge") return "3XL";
-		if ($shirtSize == "xxxxlarge" || $shirtSize == "xxxx-large" || $shirtSize == "xxxxl" || $shirtSize == "4xl" || $shirtSize == "3x-large" || $shirtSize == "4xlarge") return "4XL";
+		if ($shirtSize == "xxlarge"   || $shirtSize == "xx-large" || $shirtSize == "xxl" || $shirtSize == "2xl" || $shirtSize == "2x-large" || $shirtSize == "2xlarge") return "XXL";
+		if ($shirtSize == "xxxlarge"  || $shirtSize == "xxx-large" || $shirtSize == "xxxl" || $shirtSize == "3xl" || $shirtSize == "3x-large" || $shirtSize == "3xlarge") return "XXXL";
+		if ($shirtSize == "xxxxlarge" || $shirtSize == "xxxx-large" || $shirtSize == "xxxxl" || $shirtSize == "4xl" || $shirtSize == "3x-large" || $shirtSize == "4xlarge") return "XXXXL";
 		
 		return $shirtSize;
 	}
@@ -263,8 +286,13 @@ class SpecialUespPatreon extends SpecialPage
 		$onlyUnprocessed = $req->getVal('onlyunprocess');
 		if ($onlyUnprocessed != null) $this->inputShowOnlyUnprocessed = intval($onlyUnprocessed);
 		
-		$onlyActive = $req->getVal('onlyactive');
-		if ($onlyActive != null) $this->inputOnlyActive = intval($onlyActive);
+		$showActive = $req->getVal('showactive');
+		$showInactive = $req->getVal('showinactive');
+		if ($showActive != null) $this->inputShowActive = intval($showActive);
+		if ($showInactive != null) $this->inputShowInactive = intval($showInactive);
+		
+		$showValidAddress = $req->getVal('validaddress');
+		if ($showValidAddress != null) $this->inputValidAddress = intval($showValidAddress);
 		
 		$hideIron = $req->getVal('hideiron');
 		$hideSteel = $req->getVal('hidesteel');
@@ -411,6 +439,23 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	public function loadShipmentsForMember($patronId) 
+	{
+		$db = wfGetDB(DB_SLAVE);
+		
+		$safeId = intval($patronId);
+		$res = $db->select('patreon_shipment', '*', [ 'patreon_id' => $safeId ]);
+		
+		while ($row = $res->fetchRow())
+		{
+			$id = intval($row['id']);
+			$this->shipments[$id] = $row;
+		}
+		
+		return $this->shipments;
+	}
+	
+	
 	public static function loadPatreonUser() {
 		global $wgUser;
 		static $cachedUser = null;
@@ -491,27 +536,6 @@ class SpecialUespPatreon extends SpecialPage
 		
 		//return in_array( $permission, $this->getUser()->getEffectiveGroups() );
 		return $this->getUser()->isAllowed($permission);
-	}
-	
-	
-	private function loadPatronDataPatreon($onlyActive = true, $includeFollowers = false) {
-		require_once('Patreon/API2.php');
-		require_once('Patreon/OAuth2.php');
-		
-		if (!$this->loadInfo()) return array();
-		
-		$api = new Patreon\API($this->accessToken);
-		
-		$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 2000, null);
-		
-		//$wgOut = $this->getOutput();
-		//$raw = print_r($response, true);
-		//$wgOut->addHTML("Response: <pre>$raw</pre>");
-		
-		$patrons = UespPatreonCommon::parsePatronData($response, $onlyActive, $includeFollowers);
-		$this->patrons = $patrons;
-		
-		return $this->patrons;
 	}
 	
 	
@@ -630,8 +654,10 @@ class SpecialUespPatreon extends SpecialPage
 		$patron['origShirtSize'] = $patron['shirtSize'];
 		
 		$rewards = $this->loadRewardDataForMemberFromDb($patronId);
+		$tierChanges = $this->loadTierChangesForMember($patronId);
 		
 		$patron['rewards'] = $rewards;
+		$patron['tierChanges'] = $tierChanges;
 		$patron['totalRewardValue'] = 0;
 		
 		foreach ($rewards as $reward)
@@ -666,7 +692,8 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function loadAllPatronDataDB($onlyActive = true, $includeFollowers = false) {
+	private function loadAllPatronDataDB($useActive = true, $useInactive = true, $includeFollowers = false) 
+	{
 		$db = wfGetDB(DB_SLAVE);
 		
 		$res = $db->select('patreon_user', '*');
@@ -675,12 +702,17 @@ class SpecialUespPatreon extends SpecialPage
 		$patrons = array();
 		$index = 1;
 		
-		while ($row = $res->fetchRow()) {
-			if ($row['name'] == "") continue;
+		while ($row = $res->fetchRow()) 
+		{
+			if ($row['startDate'] == 0) continue;
+			if ($row['lastChargeDate'] == 0) continue;
+			
+			if ($row['name'] == "") $row['name'] = "<Unknown>";;
 			
 			$id = intval($row['patreon_id']);
 			
-			if ($onlyActive && $row['status'] != 'active_patron') continue;
+			if (!$useActive && $row['status'] == 'active_patron') continue;
+			if (!$useInactive && $row['status'] != 'active_patron') continue;
 			if ($this->inputHideTierIron && $row['tier'] == 'Iron') continue;
 			if ($this->inputHideTierSteel && $row['tier'] == 'Steel') continue;
 			if ($this->inputHideTierElven && $row['tier'] == 'Elven') continue;
@@ -692,6 +724,7 @@ class SpecialUespPatreon extends SpecialPage
 			$row['rewards'] = array();
 			$row['totalRewardValue'] = 0;
 			$row['origShirtSize'] = $row['shirtSize'];
+			$row['tierChanges'] = array();
 			
 			if ($id == null || $id <= 0) $id = ++$index;
 			$patrons[$id] = $row;
@@ -702,6 +735,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$this->loadAllPatronRewardDataDB();
 		$this->loadAllPatronShirtSizes();
+		$this->loadTierChanges();
 		
 		return $this->patrons;
 	}
@@ -748,17 +782,67 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	public static function sortPatronsByStartDate($a, $b) {
+	public static function sortPatronsByStartDate($a, $b) 
+	{
 		return strcmp($a['startDate'], $b['startDate']);
 	}
 	
 	
-	public static function sortTierChangesByDate($a, $b) {
+	public static function sortTierChangesByDate($a, $b) 
+	{
 		return strcmp($a['date'], $b['date']);
 	}
 	
 	
-	private function loadTierChanges() {
+	public function getPatronPreviousTier($patron)
+	{
+		if ($patron == null) return false;
+		
+		$tierChanges = $patron['tierChanges'];
+		if ($tierChanges == null) return false;
+		
+		$mostRecentTier = false;
+		$mostRecentDate = new DateTime('@0');
+		
+		foreach ($tierChanges as $tierChange)
+		{
+			$date = $tierChange['date'];
+			$dateTime = new DateTime($date);
+			$year = $dateTime->format("Y");
+			
+			if ($year == self::$REWARD_YEAR && $mostRecentDate < $dateTime) 
+			{
+				$mostRecentDate = $dateTime;
+				$mostRecentTier = $tierChange['oldTier'];
+			}
+		}
+		
+		return $mostRecentTier;
+	}
+	
+	
+	public function doesPatronHaveTierChangeThisYear($patron)
+	{
+		if ($patron == null) return false;
+		
+		$tierChanges = $patron['tierChanges'];
+		if ($tierChanges == null) return false;
+		
+		foreach ($tierChanges as $tierChange)
+		{
+			$date = $tierChange['date'];
+			$dateTime = new DateTime($date);
+			$year = $dateTime->format("Y");
+			
+			if ($year == self::$REWARD_YEAR) return true;
+		}
+		
+		return false;
+	}
+	
+	
+	private function loadTierChanges() 
+	{
 		$db = wfGetDB(DB_SLAVE);
 		
 		$this->tierChanges = array();
@@ -766,13 +850,41 @@ class SpecialUespPatreon extends SpecialPage
 		$res = $db->select(['patreon_tierchange', 'patreon_user'], '*', '', __METHOD__, [], [ 'patreon_user' => [ 'LEFT JOIN', 'patreon_tierchange.patreon_id = patreon_user.patreon_id']]);
 		if ($res->numRows() == 0) return $this->tierChanges;
 		
-		while ($row = $res->fetchRow()) {
+		while ($row = $res->fetchRow()) 
+		{
+			$id = intval($row['patreon_id']);
+			
+			if ($this->patrons[$id])
+			{
+				$this->patrons[$id]['tierChanges'][] = $row;
+			}
+			
 			$this->tierChanges[] = $row;
 		}
 		
 		usort($this->tierChanges, array("SpecialUespPatreon", "sortTierChangesByDate"));
 		
 		return $this->tierChanges;
+	}
+	
+	
+	private function loadTierChangesForMember($patronId) 
+	{
+		$db = wfGetDB(DB_SLAVE);
+		
+		$tierChanges = [];
+		
+		$safeId = intval($patronId);
+		$res = $db->select(['patreon_tierchange', 'patreon_user'], '*', ['patreon_tierchange.patreon_id' => $safeId], __METHOD__, [], [ 'patreon_user' => [ 'LEFT JOIN', 'patreon_tierchange.patreon_id = patreon_user.patreon_id']]);
+		if ($res->numRows() == 0) return $tierChanges;
+		
+		while ($row = $res->fetchRow()) {
+			$tierChanges[] = $row;
+		}
+		
+		usort($tierChanges, array("SpecialUespPatreon", "sortTierChangesByDate"));
+		
+		return $tierChanges;
 	}
 	
 	
@@ -794,7 +906,7 @@ class SpecialUespPatreon extends SpecialPage
 			$periodName = "Last Year";
 		
 		$this->loadInfo();
-		$patrons = $this->loadAllPatronDataDB($this->inputOnlyActive, false);
+		$patrons = $this->loadAllPatronDataDB($this->inputShowActive, $this->inputShowInactive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
@@ -1015,7 +1127,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function savePatronShirtSize()
+	private function savePatron()
 	{
 		$wgOut = $this->getOutput();
 		
@@ -1045,8 +1157,12 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<p/>");
 		
 		$req = $this->getRequest();
+		
 		$shirtSize = $req->getVal("shirtSize");
 		if ($shirtSize == null) $shirtSize = "";
+		
+		$specialNote = $req->getVal("specialNote");
+		if ($specialNote == null) $specialNote = "";
 		
 		$db = wfGetDB(DB_MASTER);
 		
@@ -1083,11 +1199,14 @@ class SpecialUespPatreon extends SpecialPage
 			if (!$res) $wgOut->addHTML("Error: Failed to save shirt size in patron table!");
 		}
 		
-		$wgOut->addHTML("Successfully updated shirt size for patron!");
+		$res = $db->update("patreon_user", [ "specialNote" => $specialNote ], [ 'patreon_id' => $this->inputPatronId ]);
+		if (!$res) $wgOut->addHTML("Error: Failed to save special note in patron table!");
+		
+		$wgOut->addHTML("Successfully updated shirt size and note for patron!");
 	}
 	
 	
-	private function editPatronShirtSize()
+	private function editPatron()
 	{
 		$wgOut = $this->getOutput();
 		
@@ -1117,9 +1236,9 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$name = $this->escapeHtml($patron['name']);
 		
-		$wgOut->addHtml("Editing shirt size for patron $name, #{$this->inputPatronId}:");
-		$actionLink = $this->getLink("saveshirtsize");
-		$wgOut->addHtml("<form method='post' id='uespPatEditShirtSizeForm' action='$actionLink'>");
+		$wgOut->addHtml("Editing patron $name, #{$this->inputPatronId}:");
+		$actionLink = $this->getLink("savepatron");
+		$wgOut->addHtml("<form method='post' id='uespPatEditForm' action='$actionLink'>");
 		$wgOut->addHtml("<input type='hidden' name='patronid' value='$this->inputPatronId' />");
 		
 		$wgOut->addHtml("<label for='uespPatShirtSize'>Shirt Size</label> ");
@@ -1134,12 +1253,55 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHtml("<option $selected>$shirtSize</option>");
 		}
 		
-		$wgOut->addHtml("</select>");
+		$wgOut->addHtml("</select><br/>");
+		
+		$specialNote = $patron['specialNote'];
+		$wgOut->addHtml("<label for='uespPatSpecialNote'>Special Note</label> ");
+		$wgOut->addHtml("<input type='text' name='specialNote' size='32' maxlength='32' value='$specialNote' /><p/><br/>");
 		
 		$wgOut->addHtml(" <input type='submit' value='Save' /> ");
 		$wgOut->addHtml("</form>");
 		
 		return true;
+	}
+	
+	
+	private function showPatronShipments()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		if ($this->inputPatronId <= 0)
+		{
+			$wgOut->addHTML("No patron specified!");
+			return;
+		}
+		
+		$patron = $this->loadPatronDataForMemberFromDb($this->inputPatronId);
+		
+		if ($patron == null)
+		{
+			$wgOut->addHTML("Failed to load the specified patron!");
+			return;
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Patrons", $this->getLink("list"));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$shipments = $this->loadShipmentsForMember($this->inputPatronId);
+		
+		$count = count($this->shipments);
+		$patronLink = $this->getlink('viewpatron', "patronid={$this->inputPatronId}");
+		$patronName = $this->escapeHtml($patron['name']);
+		$wgOut->addHTML("Showing $count shipments for patron <a href='$patronLink'>$patronName</a>.");
+		
+		$this->outputShipmentTable(false);
 	}
 	
 	
@@ -1206,6 +1368,8 @@ class SpecialUespPatreon extends SpecialPage
 		$patronNetDue = '$' . number_format($patronLifetime/100 - $patronTotalReward/100, 2);
 		$patronStart = $patron['startDate'];
 		$patronStartDate = new DateTime($patronStart);
+		$patronLastCharge = $patron['lastChargeDate'];
+		$patronLastChargeDate = new DateTime($patronLastCharge);
 		$patronDiffTime = $patronStartDate->diff(new DateTime())->format("%y years, %m months");
 		$addressName = $this->escapeHtml($patron['addressName']);
 		$addressLine1 = $this->escapeHtml($patron['addressLine1']);
@@ -1216,6 +1380,10 @@ class SpecialUespPatreon extends SpecialPage
 		$addressZip = $this->escapeHtml($patron['addressZip']);
 		$addressPhone = $this->escapeHtml($patron['addressPhone']);
 		$patronShirtSize = $patron['shirtSize'];
+		$patronSpecialNote = $patron['specialNote'];
+		
+		$tierText = $patronTier;
+		if ($this->doesPatronHaveTierChangeThisYear($patron)) $tierText .= "*";
 		
 		$wgOut->addHTML("Showing patron details:");
 		
@@ -1243,7 +1411,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th>Tier</th>");
-		$wgOut->addHTML("<td>$patronTier</td>");
+		$wgOut->addHTML("<td>$tierText</td>");
 		$wgOut->addHTML("</tr>");
 		
 		$wgOut->addHTML("<tr>");
@@ -1257,6 +1425,11 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("</tr>");
 		
 		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Last Charge Date</th>");
+		$wgOut->addHTML("<td>$patronLastCharge</td>");
+		$wgOut->addHTML("</tr>");
+		
+		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th>Lifetime Pledge</th>");
 		$wgOut->addHTML("<td>$patronLifetimeText</td>");
 		$wgOut->addHTML("</tr>");
@@ -1266,10 +1439,16 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<td>$patronRewardText ($patronNetDue due)</td>");
 		$wgOut->addHTML("</tr>");
 		
-		$editShirtSizeLink = $this->getLink("editshirtsize", "patronid=$patronId");
+		$editLink = $this->getLink("editpatron", "patronid=$patronId");
+		
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th>Shirt Size</th>");
-		$wgOut->addHTML("<td>$patronShirtSize &nbsp; &nbsp; <a href='$editShirtSizeLink'>Edit</a></td>");
+		$wgOut->addHTML("<td>$patronShirtSize &nbsp; &nbsp; <a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
+		$wgOut->addHTML("</tr>");
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Special Note</th>");
+		$wgOut->addHTML("<td>$patronSpecialNote &nbsp; &nbsp; <a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
 		$wgOut->addHTML("</tr>");
 		
 		if ($addressLine1) $addressLine1 .= "<br/>";
@@ -1282,6 +1461,13 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("</tbody></table><p/>");
 		
 		$this->showRewards(true, $patron);
+		
+		if ($patron['tierChanges'] && count($patron['tierChanges']) > 0)
+		{
+			$count = count($patron['tierChanges']);
+			$wgOut->addHTML("Showing $count tier changes for patron:");
+			$this->outputTierChangeTable($patron['tierChanges']);
+		}
 	}
 	
 	
@@ -1326,8 +1512,17 @@ class SpecialUespPatreon extends SpecialPage
 		$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
 		
 		$wgOut->addHTML("Showing rewards for patron $name ($pledgeType, $lifetime total):");
-		
 		$this->outputRewardTable($patron['rewards']);
+		
+		$shipments = $this->loadShipmentsForMember($this->inputPatronId);
+		
+		$count = count($this->shipments);
+		
+		if ($count > 0)
+		{
+			$wgOut->addHTML("Showing $count shipments for patron:");
+			$this->outputShipmentTable(false);
+		}
 	}
 	
 	
@@ -1350,9 +1545,18 @@ class SpecialUespPatreon extends SpecialPage
 			$date = $this->escapeHtml($reward['rewardDate']);
 			$note = $this->escapeHtml($reward['rewardNote']);
 			$value = '$' . number_format($reward['rewardValueCents'] / 100, 2);
+			
 			$shipmentId = $reward['shipmentId'];
 			$shipmentText = $shipmentId;
-			if ($shipmentId <= 0) $shipmentText = "";
+			
+			if ($shipmentId <= 0) 
+			{
+				$shipmentText = "";
+			}
+			else
+			{
+				$shipmentText = "<a href='" . $this->getLink("editshipment", "shipmentid=$shipmentId") . "'>#$shipmentId</a>";
+			}
 			
 			$editLink = $this->getLink("editreward", "rewardid=$rewardId");
 			
@@ -1361,7 +1565,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$note</td>");
 			$wgOut->addHTML("<td>$shipmentText</td>");
 			$wgOut->addHTML("<td>$value</td>");
-			$wgOut->addHTML("<td><a href='$editLink'>Edit</a></td>");
+			$wgOut->addHTML("<td><a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
 			$wgOut->addHTML("</tr>");
 		}
 		
@@ -1405,7 +1609,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->loadInfo();
-		$patrons = $this->loadAllPatronDataDB(true, false);
+		$patrons = $this->loadAllPatronDataDB(true, true, false);
 		$tiers = array();
 		
 		if ($patrons == null || count($patrons) == 0) {
@@ -1475,6 +1679,37 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function outputTierChangeTable($tierChanges) 
+	{
+		global $wgOut;
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'><thead>");
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Full Name</th>");
+		$wgOut->addHTML("<th>Old Tier</th>");
+		$wgOut->addHTML("<th>New Tier</th>");
+		$wgOut->addHTML("<th>Changed On</th>");
+		$wgOut->addHTML("</tr></thead><tbody>");
+		
+		foreach ($tierChanges as $tierChange) {
+			$name = $this->escapeHtml($tierChange['name']);
+			$oldTier = $this->escapeHtml($tierChange['oldTier']);
+			$newTier = $this->escapeHtml($tierChange['newTier']);
+			$date = $this->escapeHtml($tierChange['date']);
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td>$name</td>");
+			$wgOut->addHTML("<td>$oldTier</td>");
+			$wgOut->addHTML("<td>$newTier</td>");
+			$wgOut->addHTML("<td>$date</td>");
+			$wgOut->addHTML("</tr>");
+		}
+		
+		$wgOut->addHTML("</tbody></table>");
+	}
+	
+	
 	private function showTierChanges() {
 		global $wgOut;
 		
@@ -1491,32 +1726,9 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<p/>");
 		
 		$count = count($this->tierChanges);
-		$wgOut->addHTML("Showing data for $count tier changes. Jump");
+		$wgOut->addHTML("Showing data for $count tier changes.");
 		
-		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatrons'><thead>");
-		
-		$wgOut->addHTML("<tr>");
-		$wgOut->addHTML("<th>Full Name</th>");
-		$wgOut->addHTML("<th>Old Tier</th>");
-		$wgOut->addHTML("<th>New Tier</th>");
-		$wgOut->addHTML("<th>Changed On</th>");
-		$wgOut->addHTML("</tr></thead><tbody>");
-		
-		foreach ($this->tierChanges as $tierChange) {
-			$name = $this->escapeHtml($tierChange['name']);
-			$oldTier = $this->escapeHtml($tierChange['oldTier']);
-			$newTier = $this->escapeHtml($tierChange['newTier']);
-			$date = $this->escapeHtml($tierChange['date']);
-			
-			$wgOut->addHTML("<tr>");
-			$wgOut->addHTML("<td>$name</td>");
-			$wgOut->addHTML("<td>$oldTier</td>");
-			$wgOut->addHTML("<td>$newTier</td>");
-			$wgOut->addHTML("<td>$date</td>");
-			$wgOut->addHTML("</tr>");
-		}
-		
-		$wgOut->addHTML("</tbody></table>");
+		$this->outputTierChangeTable($this->tierChanges);
 	}
 	
 	
@@ -1542,13 +1754,29 @@ class SpecialUespPatreon extends SpecialPage
 	private function getShowListParams($newParams = null) {
 		$params = "";
 		
-		$onlyActive = $this->inputOnlyActive;
-		if ($newParams && isset($newParams['onlyactive'])) $onlyActive = $newParams['onlyactive'];
+		$showActive = $this->inputShowActive;
+		if ($newParams && isset($newParams['showactive'])) $showActive = $newParams['showactive'];
 		
-		if ($onlyActive)
-			$params .= "onlyactive=1";
+		$showInactive = $this->inputShowInactive;
+		if ($newParams && isset($newParams['showinactive'])) $showInactive = $newParams['showinactive'];
+		
+		if ($showActive)
+			$params .= "showactive=1";
 		else
-			$params .= "onlyactive=0";
+			$params .= "showactive=0";
+		
+		if ($showInactive)
+			$params .= "showinactive=1";
+		else
+			$params .= "showinactive=0";
+		
+		$showValidAddress = $this->inputValidAddress;
+		if ($newParams && isset($newParams['validaddress'])) $showValidAddress = $newParams['validaddress'];
+		
+		if ($showValidAddress)
+			$params .= "&validaddress=1";
+		else
+			$params .= "&validaddress=0";
 		
 		$hideTierIron = $this->inputHideTierIron;
 		$hideTierSteel = $this->inputHideTierSteel;
@@ -1578,11 +1806,26 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function getShowListTierOptionHtml() {
+	private function getShowListTierOptionHtml($onlyTiers = false) {
 		$link = $this->getLink('list');
 		$html = "<form id='uesppatShowListTierForm' method='get' action='$link' onsubmit='uesppatOnShowTierSubmit()'>";
-		$html .= "<input type='hidden' name='onlyactive' value='{$this->inputOnlyActive}' />";
-		$html .= " Show ";
+		
+		if (!$onlyTiers) 
+		{
+			$activeCheck = $this->inputShowActive ? "checked" : "";
+			$inactiveCheck = $this->inputShowInactive ? "checked" : "";
+			$validAddressCheck = $this->inputValidAddress ? "checked" : "";
+			
+			$html .= "<input type='checkbox' id='uesppat_showactive' value='1' $activeCheck /> <label for='uesppat_showactive'>Active</label> &nbsp; ";
+			$html .= "<input type='checkbox' id='uesppat_showinactive' value='1' $inactiveCheck /> <label for='uesppat_showinactive'>Inactive</label> &nbsp; ";
+			$html .= "<input type='checkbox' id='uesppat_validaddress' value='1' $validAddressCheck /> <label for='uesppat_validaddress'>Valid Addresses Only</label> &nbsp; ";
+			$html .= "<input type='hidden' id='uesppat_showactive_hidden' name='showactive' value='{$this->inputShowActive}' />";
+			$html .= "<input type='hidden' id='uesppat_showinactive_hidden' name='showinactive' value='{$this->inputShowInactive}' />";
+			$html .= "<input type='hidden' id='uesppat_validaddress_hidden' name='validaddress' value='{$this->inputValidAddress}' />";
+			$html .= " : ";
+		}
+		
+		$html .= "Show ";
 		
 		$ironCheck = !$this->inputHideTierIron ? "checked" : "";
 		$steelCheck = !$this->inputHideTierSteel ? "checked" : "";
@@ -1617,6 +1860,82 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function filterNoRewardPatrons($patrons)
+	{
+		$newPatrons = [];
+		$rewardChargeDate = new DateTime(self::$REWARD_CHARGE_DATE);
+		
+		foreach ($patrons as $id => $patron)
+		{
+			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") continue;
+			
+			$lastChargeDate = new DateTime($patron['lastChargeDate']);
+			if ($lastChargeDate < $rewardChargeDate) continue;
+			
+			$yearRewardData = $this->getYearlyRewardData($patron['rewards']);
+			if ($yearRewardData['count'] > 0) continue;
+			
+			$newPatrons[$id] = $patron;
+		}
+		
+		return $newPatrons;
+	}
+	
+	
+	private function showNoRewardList()
+	{
+		global $wgOut;
+		
+		if (!$this->hasPermission("view")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb($this->getShowListTierOptionHtml(true));
+		
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$this->loadInfo();
+		$patrons = $this->loadAllPatronDataDB(true, true, false);
+		
+		if ($patrons == null || count($patrons) == 0) 
+		{
+			$wgOut->addHTML("No patrons found!");
+			return;
+		}
+		
+		$patrons = $this->filterNoRewardPatrons($patrons);
+		
+		$count = $this->countPatronsOutput($patrons);
+		$wgOut->addHTML("Showing data for $count patrons that have received no rewards this year.");
+		
+		$lastUpdate = $this->getLastUpdateFormat();
+		$wgOut->addHTML(" Patron data last updated $lastUpdate ago. ");
+		
+		$formLink = $this->getLink();
+		$wgOut->addHTML("<form method='post' id='uesppatPatronTableForm' target='_blank' action='$formLink'>");
+		$wgOut->addHTML("With Selected Patrons: ");
+		$wgOut->addHTML("<input type='hidden' id='uesppatPatronTableAction' name='action' value='' />");
+		
+		if ($this->hasPermission("shipment")) {
+			$wgOut->addHTML(" <input type='button' value='Create Shipment' onclick='uesppatOnCreateShipmentButton();' /> ");
+		}
+		
+		if ($this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML(" <input type='button' value='E-mail' onclick='uesppatOnEmailButton();'/> ");
+			$wgOut->addHTML(" <input type='button' value='Export E-mails' onclick='uesppatOnExportEmailButton();'/> ");
+		}
+		
+		$this->outputPatronTable($patrons);
+		
+		$wgOut->addHTML("</form>");
+	}
+	
+	
 	private function showList() {
 		global $wgOut;
 		
@@ -1626,33 +1945,33 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->addBreadcrumb("Home", $this->getLink());
-		
-		if ($this->inputOnlyActive)
-			$this->addBreadcrumb("All Patrons", $this->getLink("list", $this->getShowListParams(["onlyactive" => 0])));
-		else
-			$this->addBreadcrumb("Only Active", $this->getLink("list", $this->getShowListParams(["onlyactive" => 1])));
-		
-		if ($this->hasPermission("edit")) {
-			$this->addBreadcrumb($this->getShowListTierOptionHtml());
-		}
+		$this->addBreadcrumb($this->getShowListTierOptionHtml());
 		
 		$wgOut->addHTML($this->getBreadcrumbHtml());
 		$wgOut->addHTML("<p/>");
 		
 		$this->loadInfo();
-		$patrons = $this->loadAllPatronDataDB($this->inputOnlyActive, false);
+		$patrons = $this->loadAllPatronDataDB($this->inputShowActive, $this->inputShowInactive, false);
 		
 		if ($patrons == null || count($patrons) == 0) {
 			$wgOut->addHTML("No patrons found!");
 			return;
 		}
 		
-		$count = count($patrons);
+		$count = $this->countPatronsOutput($patrons);
 		
-		if ($this->inputOnlyActive)
-			$wgOut->addHTML("Showing data for $count active patrons.");
-		else
+		if ($this->inputShowActive && $this->inputShowInactive)
+		{
 			$wgOut->addHTML("Showing data for $count patrons.");
+		}
+		elseif ($this->inputShowActive)
+		{
+			$wgOut->addHTML("Showing data for $count active patrons.");
+		}
+		else
+		{
+			$wgOut->addHTML("Showing data for $count inactive patrons.");
+		}
 		
 		$lastUpdate = $this->getLastUpdateFormat();
 		$wgOut->addHTML(" Patron data last updated $lastUpdate ago. ");
@@ -1688,6 +2007,66 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function countPatronsOutput($patrons)
+	{
+		if ($patrons == null) return 0;
+		
+		$outputCount = 0;
+		
+		foreach ($patrons as $patron) {
+			
+			if ($this->inputFilter != "")
+			{
+				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
+			}
+			
+			$hasAddress = "Yes";
+			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") $hasAddress = "NO";
+			
+			if ($this->inputValidAddress)
+			{
+				if ($hasAddress != "Yes") continue;
+			}
+			
+			++$outputCount;
+		}
+		
+		return $outputCount;
+	}
+	
+	
+	private function getYearlyRewardData($rewards)
+	{
+		$data = [];
+		$data['count'] = 0;
+		$data['value'] = 0;
+		$data['rewards'] = [];
+		
+		$startDate = new DateTime(self::$REWARD_YEAR_START);
+		$endDate = new DateTime(self::$REWARD_YEAR_END);
+		
+		//error_log("getYearlyRewardData");
+		
+		foreach ($rewards as $reward)
+		{
+			$dateTime = new DateTime($reward['rewardDate']);
+			
+			//$d1 = $startDate->format('Y-m-d H:i:s');
+			//$d2 = $dateTime->format('Y-m-d H:i:s');
+			//$d3 = $endDate->format('Y-m-d H:i:s');
+			//error_log("DateCompare: $d1 -- $d2 -- $d3");
+			
+			if ($dateTime < $startDate || $dateTime > $endDate) continue;
+			
+			++$data['count'];
+			$data['value'] += $reward['rewardValueCents'];
+			$date['rewards'][] = $reward;
+		}
+		
+		return $data;
+	}
+	
+	
 	private function outputPatronTable($patrons) {
 		global $wgOut;
 		
@@ -1702,9 +2081,11 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>Pledge Type</th>");
 		$wgOut->addHTML("<th>Shirt Size</th>");
 		$wgOut->addHTML("<th>Lifetime $</th>");
-		$wgOut->addHTML("<th>Reward $</th>");
+		$wgOut->addHTML("<th>Total<br/>Reward $</th>");
+		$wgOut->addHTML("<th>" . self::$REWARD_YEAR ."<br/>Reward $</th>");
 		$wgOut->addHTML("<th>Net Due $</th>");
 		$wgOut->addHTML("<th>Patron Since</th>");
+		$wgOut->addHTML("<th>Last Charge</th>");
 		$wgOut->addHTML("<th>Has Address</th>");
 		$wgOut->addHTML("<th class='unsortable'></th>");
 		$wgOut->addHTML("</tr></thead><tbody>");
@@ -1718,6 +2099,14 @@ class SpecialUespPatreon extends SpecialPage
 				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
 			}
 			
+			$hasAddress = "Yes";
+			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") $hasAddress = "NO";
+			
+			if ($this->inputValidAddress)
+			{
+				if ($hasAddress != "Yes") continue;
+			}
+			
 			++$outputCount;
 			
 			$patronId = $patron['patreon_id'];
@@ -1728,18 +2117,25 @@ class SpecialUespPatreon extends SpecialPage
 			$lifetimeText = '$' . number_format($lifetime / 100, 2);
 			$pledgeType = $this->getPledgeCadenceText($patron['pledgeCadence']);
 			$pledgeStart = $patron['startDate'];
+			$pledgeLastCharge = $patron['lastChargeDate'];
 			$shirtSize = $patron['shirtSize'];
 			
 			$tierYearly = $this->getYearlyTierAmount($tier, $patron['pledgeCadence']);
 			
-			$reward = '$' . number_format($patron['totalRewardValue'] / 100, 2);
+			$rewardCount = count($patron['rewards']);
+			$reward = '$' . number_format($patron['totalRewardValue'] / 100, 2) . " ($rewardCount)";
 			$netDue = $patron['lifetimePledgeCents'] - $patron['totalRewardValue'];
 			$netDueText = '$' . number_format($netDue / 100, 2);
+			
+			$yearRewardData = $this->getYearlyRewardData($patron['rewards']);
+			$yearReward = '$' . number_format($yearRewardData['value'] / 100, 2) . ' (' . $yearRewardData['count'] . ')';
 			
 			$wikiUserId = $patron['wikiuser_id'];
 			$wikiUserText = $wikiUserId;
 			
-			if ($wikiUserText <= 0) 
+			$specialNote = trim($patron['specialNote']);
+			
+			if ($wikiUserText <= 0)
 			{
 				$wikiUserText = "";
 				$wikiUser = null;
@@ -1763,24 +2159,26 @@ class SpecialUespPatreon extends SpecialPage
 				$viewPledgeLink = "";
 			}
 			
-			if ($this->hasPermission("edit")) {
+			if ($this->hasPermission("edit")) 
+			{
 				$rewardLink = $this->getLink("viewrewards", "patronid=$patronId");
 				$viewRewardLink = "<a href='$rewardLink'>Rewards</a>";
 				
 				$viewPatron = $this->getLink("viewpatron", "patronid=$patronId");
 				$viewPatronLink = "<a href='$viewPatron'>Details</a>";
 				
-				$editShirt = $this->getLink("editshirtsize", "patronid=$patronId");
-				$editShirtLink = "<a href='$editShirt'>Edit Shirt Size</a>";
+				$viewShip = $this->getLink("viewpatronship", "patronid=$patronId");
+				$viewShipLink = "<a href='$viewShip'>Shipments</a>";
+				
+				$editPatron = $this->getLink("editpatron", "patronid=$patronId");
+				$editPatronLink = "<a href='$editPatron'><nobr>Edit</nobr></a>";
 			}
 			else {
 				$viewRewardLink = "";
 				$viewPatronLink = "";
-				$editShirtLink = "";
+				$editPatronLink = "";
+				$viewShipLink = "";
 			}
-			
-			$hasAddress = "Yes";
-			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") $hasAddress = "NO";
 			
 			$checkbox = "<input type='checkbox' name='patronids[]' class='uesppatPatronRowCheckbox' value='$patronId'/>";
 			
@@ -1800,20 +2198,32 @@ class SpecialUespPatreon extends SpecialPage
 			$shirtSizeClass = "";
 			if ($shirtSize == "" && ($tier == "Orcish" || $tier == "Glass" || $tier == "Daedric")) $shirtSizeClass = "uespPatError";
 			
+			$tierText = $tier;
+			
+			if ($this->doesPatronHaveTierChangeThisYear($patron)) {
+				$oldTier = $this->getPatronPreviousTier($patron);
+				if ($oldTier) $tierText .= "* ($oldTier)";
+			}
+			
+			$tierClass = '';
+			if ($specialNote) $tierClass = 'uesppatTierSpecialNote';
+			
 			$wgOut->addHTML("<tr>");
 			$wgOut->addHTML("<td>$checkbox</td>");
 			$wgOut->addHTML("<td>$name</td>");
-			$wgOut->addHTML("<td>$wikiUserText</td>");
-			$wgOut->addHTML("<td>$tier</td>");
+			$wgOut->addHTML("<td class='uesppatWikiUserCell'>$wikiUserText</td>");
+			$wgOut->addHTML("<td class='$tierClass' title='$specialNote'>$tierText</td>");
 			$wgOut->addHTML("<td class='$statusClass'>$status</td>");
 			$wgOut->addHTML("<td>$pledgeType</td>");
 			$wgOut->addHTML("<td class='$shirtSizeClass'>$shirtSize</td>");
 			$wgOut->addHTML("<td>$lifetimeText</td>");
 			$wgOut->addHTML("<td>$reward</td>");
+			$wgOut->addHTML("<td>$yearReward</td>");
 			$wgOut->addHTML("<td class='$netDueClass'>$netDueText</td>");
-			$wgOut->addHTML("<td>$pledgeStart</td>");
+			$wgOut->addHTML("<td class='uesppatDateTimeCell'>$pledgeStart</td>");
+			$wgOut->addHTML("<td class='uesppatDateTimeCell'>$pledgeLastCharge</td>");
 			$wgOut->addHTML("<td class='$addressClass'>$hasAddress</td>");
-			$wgOut->addHTML("<td>$viewPatronLink &nbsp; &nbsp; $viewRewardLink &nbsp; &nbsp; $editShirtLink $viewPledgeLink</td>");
+			$wgOut->addHTML("<td>$viewPatronLink &nbsp; &nbsp; $viewRewardLink &nbsp; &nbsp; $viewShipLink &nbsp; &nbsp; $editPatronLink $viewPledgeLink</td>");
 			$wgOut->addHTML("</tr>");
 		}
 		
@@ -1996,7 +2406,8 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$viewLink = SpecialUespPatreon::getLink("list");
-		$activeLink = SpecialUespPatreon::getLink("list", "onlyactive=1");
+		$activeLink = SpecialUespPatreon::getLink("list", "showactive=1&showinactive=0");
+		$noRewarwdLink = SpecialUespPatreon::getLink("listnoreward");
 		$linkLink = SpecialUespPatreon::getLink("link");
 		$newLink = SpecialUespPatreon::getLink("shownew");
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
@@ -2005,11 +2416,12 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><b>Patron Info</b><ul>");
-		$wgOut->addHTML("<li><a href='$activeLink'>View Active Patrons</a></li>");
-		$wgOut->addHTML("<li><a href='$viewLink'>View All Patrons</a></li>");
-		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a></li>");
-		$wgOut->addHTML("<li><a href='$wikiLink'>View Wiki Patreon List</a></li>");
-		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a></li>");
+		$wgOut->addHTML("<li><a href='$activeLink'>View Active Patrons</a> -- View all currently active patrons.</li>");
+		$wgOut->addHTML("<li><a href='$viewLink'>View All Patrons</a> -- View all patrons including former, declined, and deleted.</li>");
+		$wgOut->addHTML("<li><a href='$noRewarwdLink'>View Patrons With No Rewards</a> -- Filters patrons with valid addresses, donated this year, and no rewards shipped yet.</li>");
+		$wgOut->addHTML("<li><a href='$newLink'>Show New Patrons</a> -- Show new patrons who have joined in the past # days/weeks.</li>");
+		$wgOut->addHTML("<li><a href='$wikiLink'>View Wiki Patreon List</a> -- Show a wiki formatted table of all patrons.</li>");
+		$wgOut->addHTML("<li><a href='$tierChangeLink'>Show Tier Changes</a> -- List all tiers changed made by patrons.</li>");
 		$wgOut->addHTML("</ul></li>");
 		
 		if ($this->hasPermission("shipment")) 
@@ -2259,10 +2671,14 @@ class SpecialUespPatreon extends SpecialPage
 			$shipment['addressZip'] = trim($row[$colIndex['zip']]);
 			$shipment['addressCountry'] = trim($row[$colIndex['country']]);
 			if ($colIndex['phone']) $shipment['addressPhone'] = trim($row[$colIndex['phone']]);
-			
 			$shipment['orderNumber'] = $this->makeOrderNumber($tier);
+			
 			$shipment['orderSku'] = $this->makeOrderSku(null, $tier, $shirtSize);
+			if ($colIndex['sku'] && $row[$colIndex['sku']]) $shipment['orderSku'] = trim($row[$colIndex['sku']]);
+			
 			$shipment['orderQnt'] = 1;
+			if ($colIndex['qnt'] && $row[$colIndex['qnt']]) $shipment['orderQnt'] = trim($row[$colIndex['qnt']]);
+			
 			$shipment['shipMethod'] = "";
 			$shipment['shippingValue'] = $this->getTierRewardShippingValue($tier);
 			$shipment['rewardValue'] = 0;
@@ -2336,7 +2752,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function outputShipmentTable() 
+	private function outputShipmentTable($showPatronLink = true) 
 	{
 		global $wgOut;
 		
@@ -2406,7 +2822,10 @@ class SpecialUespPatreon extends SpecialPage
 			
 			$editLink = $this->getLink("editshipment", "shipmentid=$id");
 			$rewardsLink = $this->getLink("shiprewards", "shipmentid=$id");
+			
 			$patronLink = $this->getLink("viewpatron", "patronid={$shipment['patreon_id']}");
+			$patronLink = "<a href='$patronLink'>Patron</a>";
+			if (!$showPatronLink) $patronLink = "";
 			
 			$wgOut->addHTML("<tr>");
 			$wgOut->addHTML("<td>$checkbox</td>");
@@ -2426,7 +2845,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$addressCountry</td>");
 			$wgOut->addHTML("<td>$emailText</td>");
 			$wgOut->addHTML("<td><small>$addressPhone</small></td>");
-			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a> &nbsp; &nbsp; <a href='$patronLink'>Patron</a></td>");
+			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a> &nbsp; &nbsp; $patronLink</td>");
 			$wgOut->addHTML("</tr>");
 			
 			++$index;
@@ -2453,7 +2872,7 @@ class SpecialUespPatreon extends SpecialPage
 		$shipment['patreon_id'] = -1;
 		$shipment['createDate'] = date("Y-m-d H:i:s");
 		
-		$this->outputShipmentForm($shipment);
+		$this->outputShipmentForm($shipment, "savenewshipment");
 	}
 	
 	
@@ -2570,12 +2989,13 @@ class SpecialUespPatreon extends SpecialPage
 		$values['shipMethod'] = $req->getVal('shipmentMethod');
 		$values['createDate'] = $req->getVal('shipmentDate');
 		$values['isProcessed'] = $req->getVal('shipmentProcessed');
+		if ($values['isProcessed'] == null) $values['isProcessed'] = 0;
 		
-		$res = $db->update('patreon_shipment', $values, ['id' => $this->inputShipmentId]);
+		$res = $db->insert('patreon_shipment', $values);
 		
 		if ($res)
 		{
-			$wgOut->addHTML("Successfully saved shipment #{$this->inputShipmentId}!");
+			$wgOut->addHTML("Successfully saved new shipment!");
 		}
 		else
 		{
@@ -2618,7 +3038,7 @@ class SpecialUespPatreon extends SpecialPage
 		foreach ($patronIds as $i => $patronId) {
 			$orderNumber = $orderNumbers[$i];
 			$orderSku = $orderSkus[$i];
-			$orderQnt = $orderQnt[$i];
+			$orderQnt = $orderQnts[$i];
 			$shipMethod = $shipMethods[$i];
 			$addressName = $addressNames[$i];
 			$addressLine1 = $addressLine1s[$i];
@@ -2712,7 +3132,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function outputShipmentForm($shipment)
+	private function outputShipmentForm($shipment, $destForm = "saveshipment")
 	{
 		$wgOut = $this->getOutput();
 		
@@ -2727,7 +3147,7 @@ class SpecialUespPatreon extends SpecialPage
 		else
 			$wgOut->addHTML("Editing Shipment #{$this->inputShipmentId}:");
 		
-		$actionLink = $this->getLink("saveshipment");
+		$actionLink = $this->getLink($destForm);
 		$wgOut->addHTML("<form id='uespPatEditShipmentForm' method='post' action='$actionLink' >");
 		$wgOut->addHTML("<input type='hidden' name='shipmentid' value='{$this->inputShipmentId}' />");
 		$wgOut->addHTML("<table class='wikitable'><tbody>");
@@ -2757,7 +3177,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<option>Glass</option>");
 		$wgOut->addHTML("<option>Daedric</option>");
 		$wgOut->addHTML("</select>");
-		$wgOut->addHTML(" <button type='button' id='uespPatronGetShipmentOrderNumberButton' onclick='uesppatOnGetShipmentOrderNumberButton();'>Get Order #</button> ");
+		$wgOut->addHTML("<button type='button' id='uespPatronGetShipmentOrderNumberButton' onclick='uesppatOnGetShipmentOrderNumberButton();'>Get Order #</button> ");
 		$wgOut->addHTML("</td></tr>");
 		
 		$sku = $this->escapeHtml($shipment['orderSku']);
@@ -2775,7 +3195,8 @@ class SpecialUespPatreon extends SpecialPage
 		$shipMethod = $this->escapeHtml($shipment['shipMethod']);
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th>Ship Method</th>");
-		$wgOut->addHTML("<td><input type='text' name='shipmentMethod' value='$shipMethod' size='16' maxlength='16' /></td>");
+		$datalist = $this->makeShipMethodDataList("uespPatShipMethodDataList");
+		$wgOut->addHTML("<td><input type='text' name='shipmentMethod' value='$shipMethod' size='32' maxlength='32' list='uespPatShipMethodDataList' />$datalist</td>");
 		$wgOut->addHTML("</tr>");
 		
 		$shipName = $this->escapeHtml($shipment['addressName']);
@@ -2851,6 +3272,21 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$this->outputTierRewardValuesJS();
 		$this->outputTierShippingValuesJS();
+		$this->outputShippingMethodsJS();
+	}
+	
+	
+	private function makeShipMethodDataList($id)
+	{
+		$datalist = "<datalist id='$id'>";
+		
+		foreach ($this->SHIP_METHODS as $method)
+		{
+			$datalist .= "<option value='$method'>";
+		}
+		
+		$datalist .= "</datalist>";
+		return $datalist;
 	}
 	
 	
@@ -2929,7 +3365,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->loadInfo();
-		$this->loadAllPatronDataDB(false, false);
+		$this->loadAllPatronDataDB(true, true, false);
 		
 		$emails = $this->createEmailList();
 		
@@ -2958,7 +3394,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->loadInfo();
-		$this->loadAllPatronDataDB(false, false);
+		$this->loadAllPatronDataDB(true, true, false);
 		
 		$emails = $this->createEmailList();
 		
@@ -3014,7 +3450,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$shipmentCsv = array();
-		$shipmentCsv[] = ["OrderNumber", "SKU", "Quantity", "ShippingMethod", "FullName", "Company", "Address1" ,"Address2", "City", "State", "Zip", "Phone", "Country", "Email", "GiftMessage", "ParcelInsurance", "ThirdPartyShipping"];
+		$shipmentCsv[] = ["OrderNumber", "SKU", "Quantity", "UOM", "ShippingMethod", "FullName", "Company", "Address1" ,"Address2", "City", "State", "Zip", "Phone", "Country", "Email", "GiftMessage", "ParcelInsurance", "ThirdPartyShipping"];
 		
 		foreach ($shipments as $shipment)
 		{
@@ -3022,6 +3458,7 @@ class SpecialUespPatreon extends SpecialPage
 			$shipCsv[] = trim($shipment['orderNumber']);
 			$shipCsv[] = trim($shipment['orderSku']);
 			$shipCsv[] = trim($shipment['orderQnt']);
+			$shipCsv[] = "";
 			$shipCsv[] = trim($shipment['shipMethod']);
 			$shipCsv[] = trim($shipment['addressName']);
 			$shipCsv[] = "";
@@ -3029,7 +3466,9 @@ class SpecialUespPatreon extends SpecialPage
 			$shipCsv[] = trim($shipment['addressLine2']);
 			$shipCsv[] = trim($shipment['addressCity']);
 			$shipCsv[] = trim($shipment['addressState']);
-			$shipCsv[] = trim($shipment['addressZip']);
+			$zip = trim($shipment['addressZip']);
+			if ($zip == "") $zip = "-";
+			$shipCsv[] = $zip;
 			$shipCsv[] = trim($shipment['addressPhone']);
 			$shipCsv[] = trim($shipment['addressCountry']);
 			$shipCsv[] = trim($shipment['email']);
@@ -3078,7 +3517,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->loadInfo();
-		$this->loadAllPatronDataDB(false, false);
+		$this->loadAllPatronDataDB(true, true, false);
 		
 		$this->createNewShipments();
 		
@@ -3100,6 +3539,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$this->outputTierRewardValuesJS();
 		$this->outputTierShippingValuesJS();
+		$this->outputShippingMethodsJS();
 	}
 	
 	
@@ -3172,6 +3612,18 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<script type='text/javascript'>");
 		$tierJson = json_encode($tierValues);
 		$wgOut->addHTML("window.g_uesppatTierShippingValues = $tierJson;");
+		
+		$wgOut->addHTML("</script>");
+	}
+	
+	
+	private function outputShippingMethodsJS()
+	{
+		$wgOut = $this->getOutput();
+		
+		$wgOut->addHTML("<script type='text/javascript'>");
+		$json = json_encode($this->SHIP_METHODS);
+		$wgOut->addHTML("window.g_uesppatShippingMethods = $json;");
 		
 		$wgOut->addHTML("</script>");
 	}
@@ -3492,7 +3944,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->loadInfo();
-		$this->loadAllPatronDataDB(false, false);
+		$this->loadAllPatronDataDB(true, true, false);
 		
 		$tierCounts = array();
 		$tierCounts['Iron'] = 0;
@@ -3526,6 +3978,13 @@ class SpecialUespPatreon extends SpecialPage
 			}
 		}
 		
+		$countryCount = [];
+		$countryCount['US'] = 0;
+		$countryCount['CA'] = 0;
+		$countryCount['INTL'] = 0;
+		$countryCount['UNKNOWN'] = 0;
+		$totalCountryCount = 0;
+		
 		foreach ($this->patrons as $patron)
 		{
 			if ($patron['status'] != "active_patron") continue;
@@ -3545,6 +4004,19 @@ class SpecialUespPatreon extends SpecialPage
 			}
 			
 			$activeCount++;
+			
+			$country = strtoupper($patron['addressCountry']);
+			
+			if ($country == 'US' || $country == 'USA' || $country == 'UNITED STATES')
+				++$countryCount['US'];
+			elseif ($country == 'CA' || $country == 'CAD' || $country == 'CANADA')
+				++$countryCount['CA'];
+			elseif ($country != '')
+				++$countryCount['INTL'];
+			else
+				++$countryCount['UNKNOWN'];
+			
+			++$totalCountryCount;
 		}
 		
 		$this->addBreadcrumb("Home", $this->getLink());
@@ -3592,6 +4064,16 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("<li><b>Total = $totalShirtCount</b></li>");
 		$wgOut->addHTML("</ul></li>");
+		
+		$wgOut->addHTML("<li><b>Countries</b><ul>");
+		
+		foreach ($countryCount as $country => $count)
+		{
+			$pct = floor($count / $totalCountryCount * 100);
+			$wgOut->addHTML("<li>$country = $count ($pct%)</li>");
+		}
+		
+		$wgOut->addHTML("</ul></li>");
 		$wgOut->addHTML("</ul>");
 	}
 	
@@ -3624,6 +4106,8 @@ class SpecialUespPatreon extends SpecialPage
 			case 'view':
 				$this->showList();
 				break;
+			case 'listnoreward':
+				$this->showNoRewardList();
 			case 'shownew':
 			case 'new':
 				$this->showNew();
@@ -3675,14 +4159,17 @@ class SpecialUespPatreon extends SpecialPage
 			case 'viewpledges':
 				$this->showPledges();
 				break; */
+			case 'viewpatronship':
+				$this->showPatronShipments();
+				break;
 			case 'viewpatron':
 				$this->showPatron();
 				break;
-			case 'editshirtsize':
-				$this->editPatronShirtSize();
+			case 'editpatron':
+				$this->editPatron();
 				break;
-			case 'saveshirtsize':
-				$this->savePatronShirtSize();
+			case 'savepatron':
+				$this->savePatron();
 				break;
 			case 'viewrewards':
 				$this->showRewards();

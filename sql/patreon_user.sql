@@ -14,6 +14,7 @@ CREATE TABLE /*$wgDBprefix*/patreon_user (
   note MEDIUMTEXT NOT NULL,
   lifetimePledgeCents INT(10) UNSIGNED NOT NULL DEFAULT 0,
   startDate DATETIME NOT NULL,
+  lastPledgeDate DATETIME NOT NULL,
   addressName TINYTEXT NOT NULL,
   addressLine1 TINYTEXT NOT NULL,
   addressLine2 TINYTEXT NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE /*$wgDBprefix*/patreon_user (
   addressCountry TINYTEXT NOT NULL,
   addressPhone TINYTEXT NOT NULL,
   shirtSize TINYTEXT NOT NULL,
+  specialNote TINYTEXT NOT NULL,
   KEY(patreon_id),
   KEY(wikiuser_id)
 ) /*$wgDBTableOptions*/;

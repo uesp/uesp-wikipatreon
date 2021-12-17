@@ -9,6 +9,9 @@ window.uesppatOnShowTierSubmit = function() {
 	$("#uesppat_showglass_hidden").prop("checked", !$("#uesppat_showglass").is(":checked"));
 	$("#uesppat_showdaedric_hidden").prop("checked", !$("#uesppat_showdaedric").is(":checked"));
 	$("#uesppat_showother_hidden").prop("checked", !$("#uesppat_showother").is(":checked"));
+	$("#uesppat_showactive_hidden").val($("#uesppat_showactive").is(":checked") ? "1" : "0");
+	$("#uesppat_showinactive_hidden").val($("#uesppat_showinactive").is(":checked") ? "1" : "0");
+	$("#uesppat_validaddress_hidden").val($("#uesppat_validaddress").is(":checked") ? "1" : "0");
 	
 	//console.log("uesppatOnShowTierSubmit", $("#uesppat_showiron_hidden").is(":checked"), $("#uesppat_showiron").is(":checked"));
 	return true;
@@ -19,6 +22,14 @@ window.uesppatOnPatronTableHeaderCheckbox = function() {
 	var isChecked = $("#uesppatPatronTableHeaderCheckbox").is(":checked");
 	
 	$(".uesppatPatronRowCheckbox").prop("checked", isChecked);
+	
+	return true;
+}
+
+window.uesppatOnPatronShipmentHeaderCheckbox = function() {
+	var isChecked = $("#uesppatShipmentTableHeaderCheckbox").is(":checked");
+	
+	$(".uesppatShipmentRowCheckbox").prop("checked", isChecked);
 	
 	return true;
 }
@@ -79,7 +90,6 @@ window.uesppatCreateEditWall = function() {
 window.uespPatOnEditWallClick = function() {
 	uesppatHideEditWall();
 }
-
 
 window.uesppatShowEditWall = function() {
 	if (uesppatEditWallElement == null) uesppatCreateEditWall();
@@ -239,6 +249,7 @@ window.uesppatGetEditShipmentValues = function() {
 	var email = uesppatEditShipBox.children("#uesppatEditShipEmail").val();
 	var addressPhone = uesppatEditShipBox.children("#uesppatEditShipAddressPhone").val();
 	var rewardValue = uesppatEditShipBox.children("#uesppatEditShipRewardValue").val();
+	var shippingValue = uesppatEditShipBox.children("#uesppatEditShipValue").val();
 	
 	cols.eq(4).text(orderNumber);
 	cols.eq(5).text(orderSku);
@@ -254,6 +265,8 @@ window.uesppatGetEditShipmentValues = function() {
 	cols.eq(15).text(email);
 	cols.eq(16).text(addressPhone);
 	cols.eq(18).text(rewardValue);
+	
+	rowElement.attr("shippingvalue", shippingValue);
 	
 	uesppatUpdateEditShipmentBadStatus(uesppatEditShipId);
 	
@@ -329,8 +342,22 @@ window.uesppatHideEditShipment = function() {
 	uesppatEditShipId = -1;
 }
 
+window.uesppatCreateShipMethodDataList = function(id) {
+	var datalist = "<datalist id='" + id + "'>";
+	
+	for (var i in g_uesppatShippingMethods)
+	{
+		var method = g_uesppatShippingMethods[i];
+		datalist += "<option value='" + method + "'>";
+	}
+	
+	datalist += "</datalist>";
+	return datalist;
+}
+
 
 window.uesppatCreateEditShipment = function() {
+	var datalist = uesppatCreateShipMethodDataList('uesppatShipMethodDataList');
 	var html = "\
 <div style='display:none;' id='uesppatEditShipEditBox'>\
 	<div id='uesppatEditShipTitle'>Editing Shipment #</div>\
@@ -342,7 +369,8 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>Order #</div><input type='text' id='uesppatEditShipOrderNumber' >\
 	<div class='uesppatEditShipLabel'>SKU</div><input type='text' id='uesppatEditShipOrderSku' >\
 	<div class='uesppatEditShipLabel'>Qnt</div><input type='text' id='uesppatEditShipOrderQnt' >\
-	<div class='uesppatEditShipLabel'>Ship Method</div><input type='text' id='uesppatEditShipMethod' >\
+	<div class='uesppatEditShipLabel'>Ship Method</div><input type='text' id='uesppatEditShipMethod' list='uesppatShipMethodDataList'>\
+			" + datalist + "\
 	<div class='uesppatEditShipLabel'>Addressee</div><input type='text' id='uesppatEditShipAddressName' >\
 	<div class='uesppatEditShipLabel'>Line 1</div><input type='text' id='uesppatEditShipAddressLine1' >\
 	<div class='uesppatEditShipLabel'>Line 2</div><input type='text' id='uesppatEditShipAddressLine2' >\
@@ -353,7 +381,7 @@ window.uesppatCreateEditShipment = function() {
 	<div class='uesppatEditShipLabel'>Email</div><input type='text' id='uesppatEditShipEmail' >\
 	<div class='uesppatEditShipLabel'>Phone</div><input type='text' id='uesppatEditShipAddressPhone' >\
 	<div class='uesppatEditShipLabel'>Reward Value</div><input type='text' id='uesppatEditShipRewardValue' list='uespPatEditShipRewardList' >\
-	<div class='uesppatEditShipLabel'>Shipping Value</div><input type='text' id='uesppatEditShipValue' readonly >\
+	<div class='uesppatEditShipLabel'>Shipping Value</div><input type='text' id='uesppatEditShipValue' >\
 	<div id='uesppatEditShipDeminsValue'></div>\
 	<datalist id='uespPatEditShipRewardList'>\
 	</datalist>\
@@ -374,7 +402,8 @@ window.uesppatCreateEditShipment = function() {
 	$("#uesppatEditShipRewardValue").on("change", uesppatOnEditShipRewardListChanged);
 	$("#uesppatEditShipAddressCountry").on("input", uesppatOnEditShipCountryChanged);
 	$("#uesppatEditShipAddressCountryCode").on("click", uesppatOnEditShipCountryCodeClicked)
-	$("#uesppatEditShipRewardValue").on("input", uespPatOnEditShipUpdateDeminisValue);
+	//$("#uesppatEditShipRewardValue").on("input", uespPatOnEditShipUpdateDeminisValue);
+	$("#uesppatEditShipValue").on("input", uespPatOnEditShipUpdateDeminisValue);
 }
 
 
@@ -400,6 +429,36 @@ window.uespPatOnEditShipUpdateDeminisValue = function()
 		deminisElement.text("$" + deminis.toFixed(2));
 	}
 	
+}
+
+window.uespPatUpdateAllShipmentsDeminis = function()
+{
+	var shipments = $("#uesppatCreateShipments tbody tr");
+	
+	shipments.each(function() {
+		var $this = $(this);
+		var shippingvalue = parseFloat($this.attr("shippingvalue"));
+		var flagDeminisValue = false;
+		var cells = $this.find("td");
+		var shipMethodCell = cells.eq(7);
+		var countryCode = cells.eq(14).text();
+		var deminis = 0;
+		
+		if (shippingvalue > 0 && countryCode != "")
+		{
+			deminis = uesppatGetDeminisValue(countryCode);
+			if (shippingvalue > deminis) flagDeminisValue = true;
+		}
+		
+		if (flagDeminisValue)
+		{
+			shipMethodCell.addClass("uesppatShipMethodDeminisWarning");
+		}
+		else
+		{
+			shipMethodCell.removeClass("uesppatShipMethodDeminisWarning");
+		}
+	});
 }
 
 
@@ -467,6 +526,7 @@ window.uesppatOnEditShipDeleteClicked = function() {
 
 window.uesppatOnEditShipSaveClicked = function() {
 	if (uesppatGetEditShipmentValues()) uesppatHideEditShipment();
+	uespPatUpdateAllShipmentsDeminis();
 }
 
 
@@ -727,6 +787,7 @@ window.uespatUpdateEditShipmentDeminis = function()
 
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
+	$("#uesppatShipmentTableHeaderCheckbox").on("change", uesppatOnPatronShipmentHeaderCheckbox);
 	$("#uesppatCreateShipments tr").not('thead tr').on("click", uesppatOnPatronShipmentRowClicked);
 	
 	$("#uespWikiPatronCopyButton").click(uesppatOnWikiPatronCopyClick);
@@ -745,4 +806,6 @@ $(function() {
 	$("#uespPatEditShipmentForm input[name='shipmentCountry']").on("input", uespatOnEditShipmentCountryChange);
 	
 	if ($("#uespPatEditShipmentForm").length > 0) uespatUpdateEditShipmentDeminis();
+	
+	uespPatUpdateAllShipmentsDeminis();
 });

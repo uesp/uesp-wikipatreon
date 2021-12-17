@@ -78,6 +78,7 @@ class UespPatreonCommon {
 			$patron['pledgeCadence'] = $attr['pledge_cadence'];
 			$patron['note'] = $attr['note'];
 			$patron['lifetimePledgeCents'] = $attr['lifetime_support_cents'];
+			$patron['lastChargeDate'] = $attr['last_charge_date'];
 			$patron['startDate'] = preg_replace('/(.*)T(.*)\+.*/', '\1 \2', $attr['pledge_relationship_start']);
 			$patron['addressName'] = "";
 			$patron['addressLine1'] = "";

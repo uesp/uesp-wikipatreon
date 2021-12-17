@@ -135,3 +135,23 @@
 	color: #c00;
 	font-weight: normal;
 }
+
+.uesppatEditTableLink {
+	float: right;
+}
+
+.uesppatWikiUserCell {
+	font-size: smaller;
+}
+
+.uesppatDateTimeCell {
+	font-size: smaller;
+}
+
+.uesppatTierSpecialNote {
+	background-color: #ff3;
+}
+
+.uesppatShipMethodDeminisWarning {
+	background-color: #fcc;
+}
