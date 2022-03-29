@@ -10,6 +10,7 @@
 	"AutoloadClasses": {
 		"UespPatreonCommon": "UespPatreonCommon.php",
 		"UespPatreonHooks": "UespPatreonHooks.php",
+		"UespPatreonApi": "UespPatreonApi.php",
 		"SpecialUespPatreon": "SpecialUespPatreon.php"
 	},
 	"Hooks": {
@@ -74,6 +75,9 @@
 				"mobile"
 			]
 		}
+	},
+	"APIModules" : {
+		"verifyuespcode": "UespPatreonApi"
 	},
 	"manifest_version": 1
 }

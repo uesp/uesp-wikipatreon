@@ -139,4 +139,17 @@ class UespPatreonCommon {
 	}
 	
 	
+	public static function generateRandomAppCode() {
+		$appCode = "";
+		
+		$code1 = bin2hex(openssl_random_pseudo_bytes(3));
+		$code2 = bin2hex(openssl_random_pseudo_bytes(3));
+		$code3 = bin2hex(openssl_random_pseudo_bytes(3));
+		
+		$appCode = "$code1-$code2-$code3";
+		
+		return $appCode;
+	}
+	
 };
+

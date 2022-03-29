@@ -271,16 +271,20 @@ class UespPatreonUpdate {
 		$newUsers = 0;
 		$updatedUsers = 0;
 		
-		foreach ($this->existingUsers as $id => $user) {
+		foreach ($this->existingUsers as $id => $user) 
+		{
+			$colNames = $COLNAMES;
 			
 			if ($user['__isnew']) {
+				$colNames[] = "appCode";
+				$user['appCode'] = UespPatreonCommon::generateRandomAppCode();
+				
 				$newUsers++;
 				$cols = array();
 				$vals = array();
 				
-				foreach ($COLNAMES as $field) {
+				foreach ($colNames as $field) {
 					$cols[] = $field;
-
 					$vals[] = $this->db->real_escape_string(strval($user[$field]));
 				}
 				
@@ -292,11 +296,17 @@ class UespPatreonUpdate {
 				$updatedUsers++;
 				$vars = array();
 				
-				foreach ($COLNAMES as $field) {
+				if ($user['appCode'] == '')
+				{
+					$colNames[] = "appCode";
+					$user['appCode'] = UespPatreonCommon::generateRandomAppCode();
+				}
+				
+				foreach ($colNames as $field) {
 					$value = $this->db->real_escape_string(strval($user[$field]));
 					$vars[] = "$field='$value'";
 				}
-					
+				
 				$vars = implode(",", $vars);
 				$userId = $user['id'];
 				$this->lastQuery = "UPDATE patreon_user SET $vars WHERE id='$userId';";

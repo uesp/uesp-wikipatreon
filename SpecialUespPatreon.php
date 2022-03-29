@@ -4,12 +4,16 @@
  * 		- Auto shipping method by country and de-minimis
  * 		- Select all "due" rows
  * 		- Delete shipment
+ * 		- Add rewards for a net 0 due for former patrons
  */
 
 
 if ( !defined( 'MEDIAWIKI' ) ) {
 	die( 'This is a MediaWiki extension and must be run from within MediaWiki.' );
 }
+
+
+require_once("UespPatreonCommon.php");
 
 
 class SpecialUespPatreon extends SpecialPage 
@@ -1806,8 +1810,8 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function getShowListTierOptionHtml($onlyTiers = false) {
-		$link = $this->getLink('list');
+	private function getShowListTierOptionHtml($onlyTiers = false, $targetName = "list") {
+		$link = $this->getLink($targetName);
 		$html = "<form id='uesppatShowListTierForm' method='get' action='$link' onsubmit='uesppatOnShowTierSubmit()'>";
 		
 		if (!$onlyTiers) 
@@ -1893,7 +1897,7 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$this->addBreadcrumb("Home", $this->getLink());
-		$this->addBreadcrumb($this->getShowListTierOptionHtml(true));
+		$this->addBreadcrumb($this->getShowListTierOptionHtml(true, "listnoreward"));
 		
 		$wgOut->addHTML($this->getBreadcrumbHtml());
 		$wgOut->addHTML("<p/>");
@@ -2310,7 +2314,9 @@ class SpecialUespPatreon extends SpecialPage
 				'token_expires' => wfTimestamp(TS_DB, $expires),
 				'access_token' => $tokens['access_token'],
 				'refresh_token' => $tokens['refresh_token'],
+				'appCode' => UespPatreonCommon::generateRandomAppCode(),
 		);
+		
 		$updateValues = array(
 				'wikiuser_id' => $wgUser->getId(), 
 				'token_expires' => wfTimestamp(TS_DB, $expires),
@@ -3982,7 +3988,7 @@ class SpecialUespPatreon extends SpecialPage
 		$countryCount['US'] = 0;
 		$countryCount['CA'] = 0;
 		$countryCount['INTL'] = 0;
-		$countryCount['UNKNOWN'] = 0;
+		$countryCount['EMPTY'] = 0;
 		$totalCountryCount = 0;
 		
 		foreach ($this->patrons as $patron)
@@ -4014,7 +4020,7 @@ class SpecialUespPatreon extends SpecialPage
 			elseif ($country != '')
 				++$countryCount['INTL'];
 			else
-				++$countryCount['UNKNOWN'];
+				++$countryCount['EMPTY'];
 			
 			++$totalCountryCount;
 		}
@@ -4108,6 +4114,7 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'listnoreward':
 				$this->showNoRewardList();
+				break;
 			case 'shownew':
 			case 'new':
 				$this->showNew();
