@@ -61,8 +61,33 @@ class UespPatreonHooks {
 				'rawrow' => 1,
 			);
 			
+		$patreonUser = SpecialUespPatreon::loadPatreonUser();
+		
+		if ($patreonId > 0 && $patreonUser != null)
+		{
+			$appCode = SpecialUespPatreon::loadPatreonAppCode();
+			if ($appCode < 0) $appCode = "NO CODE AVAILABLE (code missing)";
+			
+			if ($patreonUser['lifetimePledgeCents'] < 0)
+			{
+				$appCode = "CODE NOT AVAILABLE</b> (usually available within the hour after subscribing for new patrons)<b>";
+			}
+			
+			$text = wfMessage( "uesppatreon-appcodemsg" )->parse();
+			$text = str_replace("APPCODE", $appCode, $text);
+			
+			$preferences['uesppatreon-appcode'] =
+				array(
+					'type' => 'info',
+					'label' => '&#160;',
+					'default' => $text,
+					'section' => 'uesppatreon/uesppatreon-appcode',
+					'raw' => 1,
+					'rawrow' => 1,
+				);
+		}
+		
 		$text = "Reward options may be selected here in the future.";
-
 		/*
 		$preferences['uesppatreon-options'] =
 			array(
@@ -104,6 +129,6 @@ class UespPatreonHooks {
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_info', "$sql/patreon_info.sql", true ] );
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_shipment', "$sql/patreon_shipments.sql", true ] );
 		return true;
-	}    
+	}
 	
 };

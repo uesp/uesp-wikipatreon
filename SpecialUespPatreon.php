@@ -501,6 +501,28 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	public static function loadPatreonAppCode() {
+		global $wgUser;
+		static $cachedAppCode = -2; 
+	
+		if (!$wgUser->isLoggedIn()) return -1;
+		if ($cachedAppCode > 0) return $cachedAppCode;
+		
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_user', ['patreon_id', 'appCode'], ['wikiuser_id' => $wgUser->getId()]);
+		if ($res->numRows() == 0) return -1;
+		
+		$row = $res->fetchRow();
+		if ($row == null) return -1;
+		if ($row['patreon_id'] == null) return -1;
+		if ($row['appCode'] == null || $row['appCode'] == "") return -1;
+		
+		$cachedAppCode = $row['appCode'];
+		return $row['appCode'];
+	}
+	
+	
 	public static function isAPayingUser() {
 		$patreon = SpecialUespPatreon::loadPatreonUser();
 		if ($patreon == null) return false;

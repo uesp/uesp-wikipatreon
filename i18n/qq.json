@@ -6,6 +6,8 @@
     "prefs-uesppatreon": "Patreon",
     "uesppatreon-linkmsg": "\n\n\nYou have to link accounts in order for any Patreon benefits to be applied to your Wiki account. Specific reward options may also be required and entered below.",
     "prefs-uesppatreon-link": "Link/Unlink Accounts",
+    "prefs-uesppatreon-appcode": "UESP App Code",
+	"uesppatreon-appcodemsg": "Below is your free sponsor code for the UESP App to remove all ads forever!<p><br><b>APPCODE</b><p><br>This code is specific for you and your Patreon account.",
     "prefs-uesppatreon-options": "Reward Options",
 	"uesppatreon-link" : "Link your UESP Wiki account to your Patreon account: [https://patreon.com '''Link Accounts''']",
 	"uesppatreon-unlink" : "Your accounts have been linked. [https://patreon.com '''Unlink Accounts''']"
