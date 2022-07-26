@@ -24,6 +24,9 @@
 			"UespPatreonHooks::onLoadExtensionSchemaUpdates"
 		]
 	},
+	"ExtensionMessagesFiles": {
+		"UespPatreonAlias": "UespPatreon.i18n.alias.php"
+	},
 	"SpecialPages": {
 		"UespPatreon": "SpecialUespPatreon"
 	},
