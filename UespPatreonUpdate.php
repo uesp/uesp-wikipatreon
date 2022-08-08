@@ -121,21 +121,54 @@ class UespPatreonUpdate {
 		if (!$quiet) print("\tLoading user data from Patreon...\n");
 		
 		$api = new Patreon\API($this->accessToken);
+		$nextCursor = null;
+		$responses = [];
+		$pageCount = 0;
 		
-		$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 2000, null);
+		do {
+			$response = $api->fetch_page_of_members_from_campaign(UespPatreonCommon::$UESP_CAMPAIGN_ID, 2000, $nextCursor);
+			
+			if ($response == null || count($response) == 0 || is_string($response)) {
+				if (!$quiet) print("\tError: Failed to load user data from Patreon: $response\n");
+				return false;
+			}
+			
+			$responses[] = $response;
+			$nextCursor = null;
+			
+			$meta = $response['meta'];
+			
+			if ($meta)
+			{
+				$pagination = $meta['pagination'];
+				
+				if ($pagination)
+				{
+					$cursors = $pagination['cursors'];
+					
+					if ($cursors)
+					{
+						$nextCursor = $cursors['next'];
+					}
+				}
+			}
+			
+			++$pageCount;
+			if ($nextCursor != null) print("\t$pageCount) Found next cursor: $nextCursor\n");
+		} while ($nextCursor != null);
 		
-		if ($response == null || count($response) == 0 || is_string($response)) {
-			if (!$quiet) print("\tError: Failed to load user data from Patreon: $response\n");
-			return false;
+		//* Debug Output
+		//$output = print_r($response, true);
+		//print($output);
+		//file_put_contents("/tmp/response.json", $output);
+		//exit(); //*/
+		
+		$this->patreonUsers = [];
+		
+		foreach ($responses as $response)
+		{
+			$this->patreonUsers = array_merge($this->patreonUsers, UespPatreonCommon::parsePatronData($response, false, false));
 		}
-		
-		/* Debug Output
-		$output = print_r($response, true);
-		print($output);
-		file_put_contents("/tmp/response.json", $output);
-		exit(); //*/
-		
-		$this->patreonUsers = UespPatreonCommon::parsePatronData($response, false, false);
 		
 		$count = count($this->patreonUsers);
 		if (!$quiet) print("\tLoaded $count patron records from Patreon!\n");
