@@ -126,13 +126,15 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	public static function getYearlyTierAmount($tier, $pledgeCadence)
+	public static function getYearlyTierAmount($tier, $pledgeCadence, $capAtOrcish = false)
 	{
 		$pledgeCadence = intval($pledgeCadence);
 		if ($pledgeCadence <= 0) $pledgeCadence = 1;
 		
 		$tier = strtolower($tier);
 		$yearlyAmt = 0;
+		
+		if ($tier == "glass" || $tier == "daedric" && $capAtOrcish) $tier = "orcish";
 		
 			//TODO: Put in database?
 		if ($tier == "iron")
@@ -1537,7 +1539,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$lifetime = '$' . number_format($patron['lifetimePledgeCents'] / 100, 2);
 		
-		$wgOut->addHTML("Showing rewards for patron $name ($pledgeType, $lifetime total):");
+		$wgOut->addHTML("Showing rewards for patron $name ($pledgeType, $lifetime total pledge):");
 		$this->outputRewardTable($patron['rewards']);
 		
 		$shipments = $this->loadShipmentsForMember($this->inputPatronId);
@@ -1948,6 +1950,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		if ($this->hasPermission("shipment")) {
 			$wgOut->addHTML(" <input type='button' value='Create Shipment' onclick='uesppatOnCreateShipmentButton();' /> ");
+			$wgOut->addHTML(" <input type='button' value='Create Custom Shipment' onclick='uesppatOnCreateCustomShipmentButton();' /> ");
 		}
 		
 		if ($this->hasPermission("edit")) 
@@ -2007,11 +2010,12 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("With Selected Patrons: ");
 		$wgOut->addHTML("<input type='hidden' id='uesppatPatronTableAction' name='action' value='' />");
 		
-		if ($this->hasPermission("shipment")) {
+		if ($this->hasPermission("shipment")){
 			$wgOut->addHTML(" <input type='button' value='Create Shipment' onclick='uesppatOnCreateShipmentButton();' /> ");
+			$wgOut->addHTML(" <input type='button' value='Create Custom Shipment' onclick='uesppatOnCreateCustomShipmentButton();' /> ");
 		}
 		
-		if ($this->hasPermission("edit")) 
+		if ($this->hasPermission("edit"))
 		{
 			$wgOut->addHTML(" <input type='button' value='E-mail' onclick='uesppatOnEmailButton();'/> ");
 			$wgOut->addHTML(" <input type='button' value='Export E-mails' onclick='uesppatOnExportEmailButton();'/> ");
@@ -2593,7 +2597,75 @@ class SpecialUespPatreon extends SpecialPage
 				$shipment['orderQnt'] = 1;
 				$shipment['shipMethod'] = "";
 				$shipment['shippingValue'] = $this->getTierRewardShippingValue($patron['tier']);
-				$shipment['rewardValue'] = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence']);
+				$shipment['rewardValue'] = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence'], true);
+				
+				if ($shipment['addressName'] == "" || $shipment['addressLine1'] == "" || $shipment['addressCountry'] == "" || $shipment['tier'] == "") $shipment['__isbad'] = true;
+			}
+			
+			$this->shipments[] = $shipment;
+		}
+		
+	}
+	
+	
+	private function createNewCustomShipments()
+	{
+		$index = 1;
+		
+		foreach ($this->inputPatronIds as $patronId) 
+		{
+			$patron = $this->patrons[$patronId];
+			
+			$shipment = array();
+			$shipment['id'] = $index++;
+			$shipment['__isnew'] = true;
+			
+			if ($patron == null) 
+			{
+				$shipment['__isbad'] = true;
+				$shipment['patreon_id'] = -1;
+				$shipment['name'] = "Unknown Patron #$patronId";
+				$shipment['email'] = "";
+				$shipment['tier'] = "";
+				$shipment['status'] = "Unknown";
+				$shipment['pledgeCadence'] = 1;
+				$shipment['addressName'] = "";
+				$shipment['addressLine1'] = "";
+				$shipment['addressLine2'] = "";
+				$shipment['addressCity'] = "";
+				$shipment['addressState'] = "";
+				$shipment['addressZip'] = "";
+				$shipment['addressCountry'] = "";
+				$shipment['addressPhone'] = "";
+				$shipment['orderNumber'] = "";
+				$shipment['orderSku'] = "";
+				$shipment['orderQnt'] = 1;
+				$shipment['shipMethod'] = "";
+				$shipment['shippingValue'] = 0;
+				$shipment['rewardValue'] = 0;
+			}
+			else 
+			{
+				$shipment['patreon_id'] = $patron['patreon_id'];
+				$shipment['name'] = $patron['name'];
+				$shipment['email'] = $patron['email'];
+				$shipment['tier'] = $patron['tier'];
+				$shipment['status'] = $patron['status'];
+				$shipment['pledgeCadence'] = $patron['pledgeCadence'];
+				$shipment['addressName'] = $patron['addressName'];
+				$shipment['addressLine1'] = $patron['addressLine1'];
+				$shipment['addressLine2'] = $patron['addressLine2'];
+				$shipment['addressCity'] = $patron['addressCity'];
+				$shipment['addressState'] = $patron['addressState'];
+				$shipment['addressZip'] = $patron['addressZip'];
+				$shipment['addressCountry'] = $patron['addressCountry'];
+				$shipment['addressPhone'] = $patron['addressPhone'];
+				$shipment['orderNumber'] = "";
+				$shipment['orderSku'] = "";
+				$shipment['orderQnt'] = 1;
+				$shipment['shipMethod'] = "";
+				$shipment['shippingValue'] = $this->getTierRewardShippingValue($patron['tier']);
+				$shipment['rewardValue'] = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence'], true);
 				
 				if ($shipment['addressName'] == "" || $shipment['addressLine1'] == "" || $shipment['addressCountry'] == "" || $shipment['tier'] == "") $shipment['__isbad'] = true;
 			}
@@ -3043,6 +3115,17 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$req = $this->getRequest();
+		
+		$customShipDate = $req->getText("customshipdate");
+		$customRewardDate = $customShipDate;
+		
+		if ($customShipDate == "") 
+		{
+			$customRewardDate = date("Y-m-d H:i:s");
+		}
+		
+		$customShipMarkProccessed = intval($req->getText("customshipmarkprocess", "0"));
+		
 		$patronIds = $req->getArray("patreon_id");
 		$orderNumbers = $req->getArray("orderNumber");
 		$orderSkus = $req->getArray("orderSku");
@@ -3079,7 +3162,7 @@ class SpecialUespPatreon extends SpecialPage
 			$rewardValue = $rewardValues[$i];
 			$email = $emails[$i];
 			
-			$result = $db->insert("patreon_shipment", [
+			$data = [
 					"patreon_id" => $patronId,
 					"orderNumber" => $orderNumber,
 					"orderSku" => $orderSku,
@@ -3094,8 +3177,15 @@ class SpecialUespPatreon extends SpecialPage
 					"addressCountry" => $addressCountry,
 					"addressPhone" => $addressPhone,
 					"email" => $email,
-					"isProcessed" => 0,
-			]);
+					"isProcessed" => $customShipMarkProccessed,
+			];
+			
+			if ($customShipDate != "") 
+			{
+				$data['createDate'] = $customShipDate;
+			}
+			
+			$result = $db->insert("patreon_shipment", $data);
 			
 			if ($result)
 			{
@@ -3108,7 +3198,7 @@ class SpecialUespPatreon extends SpecialPage
 					
 					$result = $db->insert("patreon_reward", [
 							"patreon_id" => $patronId,
-							"rewardDate" => date("Y-m-d H:i:s"),
+							"rewardDate" => $customRewardDate,
 							"rewardNote" => $rewardNote,
 							"rewardValueCents" => $rewardValue * 100,
 							"shipmentId" => $shipmentId,
@@ -3555,7 +3645,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<p/>");
 		
 		$count = count($this->inputPatronIds);
-		$wgOut->addHTML("Created new shipment with $count patrons! ");
+		$wgOut->addHTML("Created new shipments with $count patrons! ");
 		$wgOut->addHTML("Edit below shipments as needed and save to update shipment data. Invalid shipments will not be saved. ");
 		
 		$formLink = $this->getLink("savenewshipments"); 
@@ -3564,6 +3654,57 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("</form>");
 		
 		$this->outputCreateShipmentTable();
+		
+		$this->outputTierRewardValuesJS();
+		$this->outputTierShippingValuesJS();
+		$this->outputShippingMethodsJS();
+	}
+	
+	
+	private function showCreateCustomShipment() 
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("shipment")) {
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		$this->loadAllPatronDataDB(true, true, false);
+		
+		$this->createNewCustomShipments();
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Patrons", $this->getLink('list'));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($this->inputPatronIds);
+		$wgOut->addHTML("Created new custom shipments with $count patrons! ");
+		$wgOut->addHTML("Edit below custom shipments as needed and save to update shipment data. Invalid shipments will not be saved. ");
+		
+		$formLink = $this->getLink("savenewshipments"); 
+		$wgOut->addHTML("<form method='post' id='uesppatSaveNewShipmentForm' action='$formLink' onsubmit='uesppatOnSaveNewShipments()'>");
+		$wgOut->addHTML("<input type='submit' value='Save Shipments'>");
+		$wgOut->addHTML("</form>");
+		
+		$today = (new DateTime())->format('Y-m-d H:i:s');
+		
+		$wgOut->addHTML("<p><br/>\n");
+		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Reward Value</div> <input type='text'' value='0.00' name='customshiprewardvalue' class='uesppatCustomShipValue' id='uesppatCustomShipRewardValue'> ");
+		$wgOut->addHTML("<input type='checkbox' value='1' name='customshipvalueadjustyearly' id='uesppatCustomShipAdjustValues' checked> Adjust Yearly Pledges &nbsp; ");
+		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomShipmentRewardValueButton();'>Update Reward Values</button><br/>\n");
+		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>SKU</div> <input type='text'' value='' name='customshipsku' class='uesppatCustomShipValue' id='uesppatCustomShipSku'> ");
+		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomShipmentSkuButton();'>Update SKUs</button><br/>\n");
+		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Date</div> <input type='text'' value='$today' name='customshipdate' id='uespPatCustomShipDate' class='uesppatCustomShipValue'> <br/>\n");
+		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Mark as Processed</div> <input type='checkbox' value='1' name='customshipvaluemarkprocess' id='uesppatCustomShipMarkProcess' checked> <br/>");
+		
+		$this->outputCreateShipmentTable(true);
 		
 		$this->outputTierRewardValuesJS();
 		$this->outputTierShippingValuesJS();
@@ -3657,11 +3798,14 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function outputCreateShipmentTable()
+	private function outputCreateShipmentTable($isCustom = false)
 	{
 		$wgOut = $this->getOutput();
 		
-		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatCreateShipments'>");
+		$customAttr = "0";
+		if ($isCustom) $customAttr = "1";
+		
+		$wgOut->addHTML("<table class='wikitable sortable jquery-tablesorter' id='uesppatCreateShipments' iscustom='$customAttr'>");
 		$wgOut->addHTML("<thead><tr>");
 		$wgOut->addHTML("<th>#</th>");
 		$wgOut->addHTML("<th>Name</th>");
@@ -3681,6 +3825,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>Email</th>");
 		$wgOut->addHTML("<th>Phone Number</th>");
 		$wgOut->addHTML("<th>Cadence</th>");
+		$wgOut->addHTML("<th>Ship Value</th>");
 		$wgOut->addHTML("<th>Reward Value</th>");
 		$wgOut->addHTML("</tr></thead><tbody>");
 		$index = 1;
@@ -3705,7 +3850,7 @@ class SpecialUespPatreon extends SpecialPage
 			$orderQnt = $shipment['orderQnt'];
 			$shipMethod = $this->escapeHtml($shipment['shipMethod']);
 			$pledgeCadence = $shipment['pledgeCadence'];
-			$shippingValue = number_format($shipment['shippingValue'] / 100, 2);
+			$shippingValue = '$' . number_format($shipment['shippingValue'] / 100, 2);
 			
 			$rewardValue = '';
 			if ($shipment['rewardValue'] > 0) $rewardValue = '$' . number_format($shipment['rewardValue']/100, 2);
@@ -3713,7 +3858,7 @@ class SpecialUespPatreon extends SpecialPage
 			$class = "";
 			if ($shipment['__isbad']) $class = "uesppatBadShipment";
 			
-			$wgOut->addHTML("<tr class='$class' patronid='$patronId' shipmentid='$id' shippingvalue='$shippingValue'>");
+			$wgOut->addHTML("<tr class='$class' patronid='$patronId' shipmentid='$id' iscustom='$customAttr'>");
 			$wgOut->addHTML("<td>$index</td>");
 			$wgOut->addHTML("<td>$name</td>");
 			$wgOut->addHTML("<td>$tier</td>");
@@ -3732,6 +3877,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$email</td>");
 			$wgOut->addHTML("<td>$addressPhone</td>");
 			$wgOut->addHTML("<td>$pledgeCadence</td>");
+			$wgOut->addHTML("<td>$shippingValue</td>");
 			$wgOut->addHTML("<td>$rewardValue</td>");
 			$wgOut->addHTML("</tr>");
 			
@@ -3761,6 +3907,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>Email</th>");
 		$wgOut->addHTML("<th>Phone Number</th>");
 		$wgOut->addHTML("<th>Cadence</th>");
+		$wgOut->addHTML("<th>Ship Value</th>");
 		$wgOut->addHTML("<th>Reward Value</th>");
 		$wgOut->addHTML("</tr></thead><tbody>");
 		$wgOut->addHTML("</tbody></table>");
@@ -4156,6 +4303,9 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'createship':
 				$this->showCreateShipment();
+				break;
+			case 'createcustomship':
+				$this->showCreateCustomShipment();
 				break;
 			case 'savenewshipments':
 				$this->saveNewShipments();

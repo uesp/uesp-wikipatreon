@@ -155,3 +155,16 @@
 .uesppatShipMethodDeminisWarning {
 	background-color: #fcc;
 }
+
+.uesppatCustomShipValueLabel {
+	display: inline-block;
+	width: 120px;
+	text-align: right;
+	font-weight: bold;
+}
+
+.uesppatCustomShipValue {
+	width: 200px;
+	padding: 3px;
+	margin: 3px;
+}

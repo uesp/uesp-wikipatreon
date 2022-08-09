@@ -236,7 +236,8 @@ class UespPatreonUpdate {
 			
 				// Don't change tiers for non-active users
 			//if ( !($user['tier'] == "" && $user['status'] != "active_patron") ) {
-			if ($user['tier'] != "" || $user['status'] == "active_patron") {
+			//if ($user['tier'] != "" || $user['status'] == "active_patron") {
+			if ($user['tier'] != "") {
 				//print("\tUpdated User Tier\n");
 				$existingUser['tier'] = $user['tier'];
 			}
