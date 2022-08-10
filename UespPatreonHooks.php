@@ -128,6 +128,8 @@ class UespPatreonHooks {
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_tierchange', "$sql/patreon_tierchange.sql", true ] );
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_info', "$sql/patreon_info.sql", true ] );
 		$updater->addExtensionUpdate( [ 'addTable', 'patreon_shipment', "$sql/patreon_shipments.sql", true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_reward', "$sql/patreon_reward.sql", true ] );
+		$updater->addExtensionUpdate( [ 'addTable', 'patreon_tag', "$sql/patreon_tag.sql", true ] );
 		return true;
 	}
 	

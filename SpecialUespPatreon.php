@@ -86,6 +86,7 @@ class SpecialUespPatreon extends SpecialPage
 	public $inputRewardId = 0;
 	public $inputShipmentId = 0;
 	public $inputFilter = "";
+	public $inputTag = "";
 	public $inputShowOnlyUnprocessed = 0;
 	
 	public $saveInfoOnExit = false;
@@ -95,6 +96,8 @@ class SpecialUespPatreon extends SpecialPage
 	public $tierChanges = array();
 	public $shipments = array();
 	public $patronData = array();
+	public $tags = array();
+	public $uniqueTags = array();
 	
 	
 	public function __construct() 
@@ -191,8 +194,8 @@ class SpecialUespPatreon extends SpecialPage
 	public static function getLink($param = null, $query = null) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 		
-		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
-		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
 		if ($query) $link .= "?" . $query;
@@ -333,6 +336,85 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$filter = $req->getVal("filter");
 		if ($filter != null) $this->inputFilter = $filter;
+		
+		$tag = $req->getVal("tag");
+		if ($tag != null) $this->inputTag = $tag;
+	}
+	
+	
+	public function loadTagsForMember($patreonId) {
+		
+		$patreonId = intval($patreonId);
+		$tags = [];
+		
+		$db = wfGetDB(DB_SLAVE);
+		$res = $db->select('patreon_tag', '*', [ 'patreon_id' => $patreonId]);
+		
+		while ($row = $res->fetchRow()) {
+			$tags[$row['tag']] += 1;
+		}
+		
+		return $tags;
+	}
+	
+	
+	public function saveTagsForMember($patreonId, $tags) {
+		
+		$patreonId = intval($patreonId);
+		
+		$db = wfGetDB(DB_MASTER);
+		
+		$res = $db->delete('patreon_tag', [ 'patreon_id' => $patreonId]);
+		if (!$res) return false;
+		
+		foreach ($tags as $tag)
+		{
+			$tag = trim($tag);
+			//error_log("saveTagsForMember: $tag");
+			if ($tag == "") continue;
+			
+			$values = [
+					'patreon_id' => $patreonId,
+					'tag' => $tag
+			];
+			
+			$res = $db->insert('patreon_tag', $values);
+			if (!$res) return false;
+		}
+		
+		return true;
+	}
+	
+	
+	public function loadAllTags() {
+		
+		$db = wfGetDB(DB_SLAVE);
+		
+		$res = $db->select('patreon_tag', '*');
+		$tags = [];
+		$allTags = [];
+		
+		while ($row = $res->fetchRow()) {
+			$id = intval($row['patreon_id']);
+			$tag = $row['tag'];
+			
+			if ($tags[$id] == null) $tags[$id] = [];
+			$tags[$id][$tag] += 1;
+			
+			$allTags[$tag] += 1;
+		}
+		
+		foreach ($this->patrons as $id => $patron)
+		{
+			$patronTags = $tags[$id];
+			if ($patronTags == null) $patronTags = [];
+			$this->patrons[$id]['tags'] = $patronTags;
+		}
+		
+		$this->tags = $tags;
+		$this->uniqueTags = $allTags;
+		
+		return $tags;
 	}
 	
 	
@@ -683,7 +765,9 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$rewards = $this->loadRewardDataForMemberFromDb($patronId);
 		$tierChanges = $this->loadTierChangesForMember($patronId);
+		$tags = $this->loadTagsForMember($patronId);
 		
+		$patron['tags'] = $tags;
 		$patron['rewards'] = $rewards;
 		$patron['tierChanges'] = $tierChanges;
 		$patron['totalRewardValue'] = 0;
@@ -764,6 +848,7 @@ class SpecialUespPatreon extends SpecialPage
 		$this->loadAllPatronRewardDataDB();
 		$this->loadAllPatronShirtSizes();
 		$this->loadTierChanges();
+		$this->loadAllTags();
 		
 		return $this->patrons;
 	}
@@ -1192,6 +1277,9 @@ class SpecialUespPatreon extends SpecialPage
 		$specialNote = $req->getVal("specialNote");
 		if ($specialNote == null) $specialNote = "";
 		
+		$tags = $req->getArray("tag");
+		if ($tags == null) $tags = [];
+		
 		$db = wfGetDB(DB_MASTER);
 		
 		if ($shirtSize == "")
@@ -1229,6 +1317,9 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$res = $db->update("patreon_user", [ "specialNote" => $specialNote ], [ 'patreon_id' => $this->inputPatronId ]);
 		if (!$res) $wgOut->addHTML("Error: Failed to save special note in patron table!");
+		
+		$res = $this->saveTagsForMember($this->inputPatronId, $tags);
+		if (!$res) $wgOut->addHTML("Error: Failed to save patreon tags!");
 		
 		$wgOut->addHTML("Successfully updated shirt size and note for patron!");
 	}
@@ -1269,7 +1360,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHtml("<form method='post' id='uespPatEditForm' action='$actionLink'>");
 		$wgOut->addHtml("<input type='hidden' name='patronid' value='$this->inputPatronId' />");
 		
-		$wgOut->addHtml("<label for='uespPatShirtSize'>Shirt Size</label> ");
+		$wgOut->addHtml("<label class='uespPatEditLabel' for='uespPatShirtSize'>Shirt Size</label> ");
 		
 		$wgOut->addHtml("<select name='shirtSize' id='uespPatShirtSize'>");
 		$wgOut->addHtml("<option value=''>None</option>");
@@ -1284,8 +1375,26 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHtml("</select><br/>");
 		
 		$specialNote = $patron['specialNote'];
-		$wgOut->addHtml("<label for='uespPatSpecialNote'>Special Note</label> ");
-		$wgOut->addHtml("<input type='text' name='specialNote' size='32' maxlength='32' value='$specialNote' /><p/><br/>");
+		$wgOut->addHtml("<label  class='uespPatEditLabel' for='uespPatSpecialNote'>Special Note</label> ");
+		$wgOut->addHtml("<input type='text' name='specialNote' size='32' maxlength='32' value='$specialNote' /><br/>");
+		
+		$wgOut->addHtml("<label class='uespPatEditLabel' for='uespPatTags'>Tags</label> ");
+		
+		$tags = $patron['tags'];
+		$hasOutputFirstLabel = true;
+		
+		foreach ($tags as $tag => $count)
+		{
+			if (!$hasOutputFirstLabel) $wgOut->addHtml("<label class='uespPatEditLabel'></label> ");
+			$wgOut->addHtml("<input type='text' name='tag[]' size='16' maxlength='16' value='$tag' class='uesppatEditTagInput' /> <div class='uesppatEditTagButton'>X</div> <br/>");
+			$hasOutputFirstLabel = false;
+		}
+		
+		if (!$hasOutputFirstLabel) $wgOut->addHtml("<label class='uespPatEditLabel'></label> ");
+		$wgOut->addHtml("<input type='text' name='tag[]' size='16' maxlength='16' value='' class='uesppatEditTagInput' /> <div class='uesppatEditTagButton'>X</div> <br/>");
+		$wgOut->addHtml("<label class='uespPatEditLabel'></label> <input type='text' name='tag[]' size='16' maxlength='16' value='' class='uesppatEditTagInput' /> <div class='uesppatEditTagButton'>X</div> <br/>");
+		$wgOut->addHtml("<label class='uespPatEditLabel'></label> <input type='text' name='tag[]' size='16' maxlength='16' value='' class='uesppatEditTagInput' /> <div class='uesppatEditTagButton'>X</div> <br/>");
+		$wgOut->addHtml("<p><br/>");
 		
 		$wgOut->addHtml(" <input type='submit' value='Save' /> ");
 		$wgOut->addHtml("</form>");
@@ -1410,6 +1519,8 @@ class SpecialUespPatreon extends SpecialPage
 		$patronShirtSize = $patron['shirtSize'];
 		$patronSpecialNote = $patron['specialNote'];
 		
+		$patronTags = $this->makeTagsHtml($patron['tags']);
+		
 		$tierText = $patronTier;
 		if ($this->doesPatronHaveTierChangeThisYear($patron)) $tierText .= "*";
 		
@@ -1477,6 +1588,11 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<tr>");
 		$wgOut->addHTML("<th>Special Note</th>");
 		$wgOut->addHTML("<td>$patronSpecialNote &nbsp; &nbsp; <a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
+		$wgOut->addHTML("</tr>");
+		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>Tags</th>");
+		$wgOut->addHTML("<td>$patronTags &nbsp; &nbsp; <a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
 		$wgOut->addHTML("</tr>");
 		
 		if ($addressLine1) $addressLine1 .= "<br/>";
@@ -1830,6 +1946,11 @@ class SpecialUespPatreon extends SpecialPage
 		if ($hideTierDaedric) $params .= "&hidedaedric=1";
 		if ($hideTierOther) $params .= "&hideother=1";
 		
+		$tag = $this->inputTag;
+		if ($newParams && isset($newParams['tag'])) $tag = $newParams['tag'];
+		$safeTag = $this->escapeHtml($tag);
+		if ($tag) $params .= "&tag=$safeTag";
+		
 		return $params;
 	}
 	
@@ -1883,7 +2004,17 @@ class SpecialUespPatreon extends SpecialPage
 		$html .= "<label for='uesppat_filter'>Filter</label> <input type='text' id='uesppat_filter' name='filter' value='$safeFilter' maxlength='16'/> &nbsp; ";
 		
 		$html .= "<input type='submit' value='Refresh' />";
+		
+		if ($this->inputTag != "")
+		{
+			$safeTag = $this->escapeHtml($this->inputTag);
+			$params = $this->getShowListParams([ 'tag' => "" ]);
+			$resetLink = $this->getLink($targetName, $params);
+			$html .= "<br/>Only showing patrons that have the tag <b>$safeTag</b>. <a href='$resetLink'>Reset Tags</a>";
+		}
+		
 		$html .= "</form>";
+		
 		return $html;
 	}
 	
@@ -1957,6 +2088,7 @@ class SpecialUespPatreon extends SpecialPage
 		{
 			$wgOut->addHTML(" <input type='button' value='E-mail' onclick='uesppatOnEmailButton();'/> ");
 			$wgOut->addHTML(" <input type='button' value='Export E-mails' onclick='uesppatOnExportEmailButton();'/> ");
+			$wgOut->addHTML(" <input type='button' value='Edit Tags' onclick='uesppatOnEditTagsButton();'/> ");
 		}
 		
 		$this->outputPatronTable($patrons);
@@ -2019,6 +2151,7 @@ class SpecialUespPatreon extends SpecialPage
 		{
 			$wgOut->addHTML(" <input type='button' value='E-mail' onclick='uesppatOnEmailButton();'/> ");
 			$wgOut->addHTML(" <input type='button' value='Export E-mails' onclick='uesppatOnExportEmailButton();'/> ");
+			$wgOut->addHTML(" <input type='button' value='Edit Tags' onclick='uesppatOnEditTagsButton();'/> ");
 		}
 		
 		$this->outputPatronTable($patrons);
@@ -2037,6 +2170,15 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function doesPatronHaveTag($patron, $tag)
+	{
+		if ($patron['tags'] == null) return false;
+		if ($patron['tags'][$tag] != null) return true;
+		
+		return false;
+	}
+	
+	
 	private function countPatronsOutput($patrons)
 	{
 		if ($patrons == null) return 0;
@@ -2048,6 +2190,11 @@ class SpecialUespPatreon extends SpecialPage
 			if ($this->inputFilter != "")
 			{
 				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
+			}
+			
+			if ($this->inputTag != "")
+			{
+				if (!$this->doesPatronHaveTag($patron, $this->inputTag)) continue;
 			}
 			
 			$hasAddress = "Yes";
@@ -2097,6 +2244,29 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function makeTagsHtml($tags) {
+		
+		if ($tags == null) return "";
+		
+		$output = "";
+		$tagList = [];
+		
+		foreach ($tags as $tag => $count)
+		{
+			$tag = trim($tag);
+			if ($tag == "") continue;
+			
+			$params = $this->getShowListParams([ 'tag' => $tag ]);
+			$link = $this->getLink("list", $params);
+			$tagList[] = "<a href='$link'>$tag</a>";
+		}
+		
+		$output = implode(" ", $tagList);
+		
+		return $output;
+	}
+	
+	
 	private function outputPatronTable($patrons) {
 		global $wgOut;
 		
@@ -2117,6 +2287,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>Patron Since</th>");
 		$wgOut->addHTML("<th>Last Charge</th>");
 		$wgOut->addHTML("<th>Has Address</th>");
+		$wgOut->addHTML("<th class='unsortable'>Tags</th>");
 		$wgOut->addHTML("<th class='unsortable'></th>");
 		$wgOut->addHTML("</tr></thead><tbody>");
 		
@@ -2127,6 +2298,11 @@ class SpecialUespPatreon extends SpecialPage
 			if ($this->inputFilter != "")
 			{
 				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
+			}
+			
+			if ($this->inputTag != "")
+			{
+				if (!$this->doesPatronHaveTag($patron, $this->inputTag)) continue;
 			}
 			
 			$hasAddress = "Yes";
@@ -2238,6 +2414,8 @@ class SpecialUespPatreon extends SpecialPage
 			$tierClass = '';
 			if ($specialNote) $tierClass = 'uesppatTierSpecialNote';
 			
+			$tags = $this->makeTagsHtml($patron['tags']);
+			
 			$wgOut->addHTML("<tr>");
 			$wgOut->addHTML("<td>$checkbox</td>");
 			$wgOut->addHTML("<td>$name</td>");
@@ -2253,6 +2431,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td class='uesppatDateTimeCell'>$pledgeStart</td>");
 			$wgOut->addHTML("<td class='uesppatDateTimeCell'>$pledgeLastCharge</td>");
 			$wgOut->addHTML("<td class='$addressClass'>$hasAddress</td>");
+			$wgOut->addHTML("<td class='uesppatTagCell'>$tags</td>");
 			$wgOut->addHTML("<td>$viewPatronLink &nbsp; &nbsp; $viewRewardLink &nbsp; &nbsp; $viewShipLink &nbsp; &nbsp; $editPatronLink $viewPledgeLink</td>");
 			$wgOut->addHTML("</tr>");
 		}
@@ -2445,6 +2624,7 @@ class SpecialUespPatreon extends SpecialPage
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
 		$wikiLink = SpecialUespPatreon::getLink("showwiki");
 		$statsLink = SpecialUespPatreon::getLink("showstats");
+		$tagLink = SpecialUespPatreon::getLink("viewtags");
 		
 		$wgOut->addHTML("<ul>");
 		$wgOut->addHTML("<li><b>Patron Info</b><ul>");
@@ -2474,6 +2654,7 @@ class SpecialUespPatreon extends SpecialPage
 		
 		$wgOut->addHTML("<li><b>Misc</b><ul>");
 		$wgOut->addHTML("<li><a href='$statsLink'>Statistics</a></li>");
+		$wgOut->addHTML("<li><a href='$tagLink'>View Tags</a></li>");
 		$wgOut->addHTML("<li><a href='$linkLink'>Link to Patreon Account</a></li>");
 		
 		if ($this->hasPermission("edit")) 
@@ -3108,7 +3289,7 @@ class SpecialUespPatreon extends SpecialPage
 	{
 		$wgOut = $this->getOutput();
 		
-		if (!$this->hasPermission("shipment")) 
+		if (!$this->hasPermission("edit") || !$this->hasPermission("shipment"))
 		{
 			$wgOut->addHTML("Permission Denied!");
 			return false;
@@ -4253,6 +4434,252 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function MakeTagList($patronIds)
+	{
+		$tags = [];
+		
+		foreach ($patronIds as $patronId)
+		{
+			$patron = $this->patrons[$patronId];
+			if ($patron == null) continue;
+			if ($patron['tags'] == null) continue;
+			
+			foreach ($patron['tags'] as $tag => $count)
+			{
+				$tags[$tag] += count;
+			}
+		}
+		
+		return $tags;
+	}
+	
+	
+	private function viewTags()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("view")) {
+			$wgOut->addHTML("Permission Denied!");
+			return;
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		//$this->addBreadcrumb($this->getShowListTierOptionHtml());
+		
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$this->loadInfo();
+		$patrons = $this->loadAllPatronDataDB(true, true, false);
+		
+		$wgOut->addHTML("<table id='uesppatViewTagsTable' class='wikitable'>\n");
+		$wgOut->addHTML("<thead><tr>");
+		$wgOut->addHTML("<th>Tag</th>");
+		$wgOut->addHTML("<th>Count</th>");
+		$wgOut->addHTML("<th></th>");
+		$wgOut->addHTML("</tr></thead><tbody>");
+		
+		foreach($this->uniqueTags as $tag => $count)
+		{
+			$safeTag = $this->escapeHtml($tag);
+			
+			$params = $this->getShowListParams([ 'tag' => $tag ]);
+			$link = $this->getLink("list", $params);
+			
+			$wgOut->addHTML("<tr>");
+			$wgOut->addHTML("<td><a href='$link'>$safeTag</a></td>");
+			$wgOut->addHTML("<td>$count</td>");
+			$wgOut->addHTML("<td></td>");
+			$wgOut->addHTML("</tr>");
+		}
+		
+		$wgOut->addHTML("</tbody></table>\n");
+	}
+	
+	
+	private function editTags()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		$this->loadAllPatronDataDB(true, true, false);
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Patrons", $this->getLink('list'));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($this->inputPatronIds);
+		$wgOut->addHTML("Editing tags for $count patrons! ");
+		
+		$formLink = $this->getLink("savetags"); 
+		$wgOut->addHTML("<form method='post' id='uesppatSaveTagsForm' action='$formLink' onsubmit='uesppatOnEditTagsSubmit()'>");
+		$wgOut->addHTML("<input type='submit' value='Save Tags'><p><br/>");
+		
+		foreach ($this->inputPatronIds as $patronId)
+		{
+			$wgOut->addHTML("<input type='hidden' name='patronids[]' value='$patronId'>");
+		}
+		
+		$tags = $this->MakeTagList($this->inputPatronIds);
+		
+		 foreach($tags as $tag => $count)
+		{
+			$safeTag = $this->escapeHtml($tag);
+			$wgOut->addHTML("<input type='hidden' name='origtag[]' value='$safeTag'>");
+			$wgOut->addHTML("Tag <input type='text' name='tag[]' value='$safeTag' maxlength='16' size='16'> (used $count times) ");
+			$wgOut->addHTML("<input type='hidden' name='deletetag[]' value='0'> ");
+			$wgOut->addHTML("<input type='checkbox' name='deletetagcheck[]' value='1'> Delete All &nbsp; ");
+			$wgOut->addHTML("<input type='hidden' name='modifytag[]' value='0'>");
+			$wgOut->addHTML("<input type='checkbox' name='modifytagcheck[]' value='1'> Modify All &nbsp; ");
+			$wgOut->addHTML("<br/>");
+		}
+		
+		for ($i = 0; $i < 3; ++$i)
+		{
+			$wgOut->addHTML("<input type='hidden' name='origtag[]' value='__new__'>");
+			$wgOut->addHTML("Tag <input type='text' name='tag[]' value='' maxlength='16' size='16'> (new) ");
+			$wgOut->addHTML("<input type='hidden' name='deletetag[]' value='0'> ");
+			$wgOut->addHTML("<input type='hidden' name='modifytag[]' value='1'>");
+			$wgOut->addHTML("<input type='checkbox' name='modifytagcheck[]' value='1' checked> Add All &nbsp; ");
+			$wgOut->addHTML("<br/>");
+		}
+		
+		$wgOut->addHTML("</form>");
+	}
+	
+	
+	private function addNewTagForMembers($patronIds, $tag)
+	{
+		if ($tag == "") return false;
+		
+		$db = wfGetDB(DB_MASTER);
+		
+		$res = $db->delete('patreon_tag', [ 'patreon_id' => $patronIds, 'tag' => $tag ]);
+		if (!$res) return false;
+		
+		foreach ($patronIds as $patronId)
+		{
+			$newValues = [
+					'patreon_id' => $patronId,
+					'tag' => $tag
+			];
+			
+			$res = $db->insert('patreon_tag', $newValues);
+			if (!$res) return false;
+		}
+		
+		return true;
+	}
+	
+	
+	private function updateTagForMembers($patronIds, $origTag, $tag)
+	{
+		if ($origTag == "") return false;
+		if ($tag == "") return false;
+		
+		$db = wfGetDB(DB_MASTER);
+		
+		$res = $db->delete('patreon_tag', [ 'patreon_id' => $patronIds, 'tag' => $origTag ]);
+		if (!$res) return false;
+		
+		foreach ($patronIds as $patronId)
+		{
+			$newValues = [
+					'patreon_id' => $patronId,
+					'tag' => $tag
+			];
+			
+			$res = $db->insert('patreon_tag', $newValues);
+			if (!$res) return false;
+		}
+		
+		return true;
+	}
+	
+	
+	private function deleteTagForMembers($patronIds, $tag)
+	{
+		if ($tag == "") return false;
+		
+		$db = wfGetDB(DB_MASTER);
+		
+		$res = $db->delete('patreon_tag', [ 'patreon_id' => $patronIds, 'tag' => $tag ]);
+		if (!$res) return false;
+		
+		return true;
+	}
+	
+	
+	private function saveTags()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->addBreadcrumb("Home", $this->getLink());
+		$this->addBreadcrumb("Patrons", $this->getLink('list'));
+		$wgOut->addHTML($this->getBreadcrumbHtml());
+		$wgOut->addHTML("<p/>");
+		
+		$count = count($this->inputPatronIds);
+		$wgOut->addHTML("Updating tags for $count patrons...<p><br/>");
+		
+		$req = $this->getRequest();
+		
+		$tags = $req->getArray("tag");
+		$origTags = $req->getArray("origtag");
+		$deleteTags = $req->getArray("deletetag");
+		$modifyTags = $req->getArray("modifytag");
+		
+		$successCount = 0;
+		$errorCount = 0;
+		
+		foreach ($origTags as $i => $origTag)
+		{
+			$origTag = trim($origTag);
+			$tag = trim($tags[$i]);
+			$deleteTag = intval($deleteTags[$i]);
+			$modifyTag = intval($modifyTags[$i]);
+			
+			$result = true;
+			
+			if ($modifyTag != 0 && $tag != "")
+			{
+				if ($origTag == "__new__")
+					$result = $this->addNewTagForMembers($this->inputPatronIds, $tag);
+				else
+					$result = $this->updateTagForMembers($this->inputPatronIds, $origTag, $tag);
+			}
+			elseif ($deleteTag != 0 && $origTag != "")
+			{
+				$result = $this->deleteTagForMembers($this->inputPatronIds, $origTag);
+			}
+			else
+			{
+				continue;
+			}
+			
+			if ($result)
+				$successCount++;
+			else
+				$errorCount++;
+		}
+		
+		$wgOut->addHTML("Successfully updated $successCount tags with $errorCount errors!<p><br/>");
+	}
+	
+	
 	private function _default() 
 	{
 		return $this->showMainMenu();
@@ -4379,6 +4806,15 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'showstats':
 				$this->showStats();
+				break;
+			case 'viewtags':
+				$this->viewTags();
+				break;
+			case 'edittags':
+				$this->editTags();
+				break;
+			case 'savetags':
+				$this->saveTags();
 				break;
 			default:
 				$this->_default();

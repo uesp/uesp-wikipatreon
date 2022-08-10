@@ -17,6 +17,37 @@ window.uesppatOnShowTierSubmit = function() {
 	return true;
 }
 
+window.uesppatOnEditTagsSubmit = function() {
+	
+	$("#uesppatSaveTagsForm input[name='deletetagcheck[]']").each(function() {
+		var $this = $(this);
+		
+		if(this.checked)
+		{
+			$this.prev().val('1');
+		}
+		else
+		{
+			$this.prev().val('0');
+		}
+	});
+	
+	$("#uesppatSaveTagsForm input[name='modifytagcheck[]']").each(function() {
+		var $this = $(this);
+		
+		if(this.checked)
+		{
+			$this.prev().val('1');
+		}
+		else
+		{
+			$this.prev().val('0');
+		}
+	});
+	
+	return true;
+}
+
 
 window.uesppatOnPatronTableHeaderCheckbox = function() {
 	var isChecked = $("#uesppatPatronTableHeaderCheckbox").is(":checked");
@@ -59,6 +90,16 @@ window.uesppatOnEmailButton = function()
 	if (checkedBoxes.length == 0) return;
 	
 	$("#uesppatPatronTableAction").val("createemail");
+	$("#uesppatPatronTableForm").submit();
+}
+
+
+window.uesppatOnEditTagsButton = function()
+{
+	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatPatronTableAction").val("edittags");
 	$("#uesppatPatronTableForm").submit();
 }
 
@@ -852,6 +893,14 @@ window.uespatUpdateEditShipmentDeminis = function()
 }
 
 
+window.uesppatOnEditTagButtonClick = function()
+{
+	var $this = $(this);
+	
+	$this.prev().val("");
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatShipmentTableHeaderCheckbox").on("change", uesppatOnPatronShipmentHeaderCheckbox);
@@ -873,6 +922,8 @@ $(function() {
 	$("#uespPatEditShipmentForm input[name='shipmentCountry']").on("input", uespatOnEditShipmentCountryChange);
 	
 	if ($("#uespPatEditShipmentForm").length > 0) uespatUpdateEditShipmentDeminis();
+	
+	$(".uesppatEditTagButton").on("click", uesppatOnEditTagButtonClick);
 	
 	uespPatUpdateAllShipmentsDeminis();
 });
