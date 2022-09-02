@@ -194,8 +194,8 @@ class SpecialUespPatreon extends SpecialPage
 	public static function getLink($param = null, $query = null) {
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 		
-		$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
-		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
 		if ($query) $link .= "?" . $query;
