@@ -184,10 +184,11 @@ class SpecialUespPatreon extends SpecialPage
 		return $value;
 	}
 	
-	
+			// Needs a full URL for the patreon redirect link that matches expected values (en or content3)
 	public static function getPreferenceLink() {
-		//return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
-		return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		//return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		//return "/wiki/Special:Preferences#mw-prefsection-uesppatreon";
 	}
 	
 	
@@ -195,6 +196,16 @@ class SpecialUespPatreon extends SpecialPage
 		//$link = $this->getTitle( $param )->getCanonicalURL();
 		
 		//$link = "https://content3.uesp.net/wiki/Special:UespPatreon";
+		//$link = "https://en.uesp.net/wiki/Special:UespPatreon";
+		$link = "/wiki/Special:UespPatreon";
+		
+		if ($param) $link .= "/" . $param;
+		if ($query) $link .= "?" . $query;
+		return $link;
+	}
+	
+		// Needs a full URL for the patreon redirect link that matches expected values (en or content3)
+	public static function getRedirectLink($param = null, $query = null) {
 		$link = "https://en.uesp.net/wiki/Special:UespPatreon";
 		
 		if ($param) $link .= "/" . $param;
@@ -213,7 +224,7 @@ class SpecialUespPatreon extends SpecialPage
 		global $uespPatreonClientSecret;
 		
 		$link = 'https://www.patreon.com/oauth2/authorize?response_type=code&client_id=' . $uespPatreonClientId;
-		$link .= '&redirect_uri=' . SpecialUespPatreon::getLink("callback");
+		$link .= '&redirect_uri=' . SpecialUespPatreon::getRedirectLink("callback");
 		
 		return $link;
 	}
@@ -2464,9 +2475,18 @@ class SpecialUespPatreon extends SpecialPage
 		require_once('Patreon/OAuth2.php');
 		
 		$oauth = new Patreon\OAuth($uespPatreonClientId, $uespPatreonClientSecret);
-		$tokens = $oauth->get_tokens($_GET['code'], SpecialUespPatreon::getLink("callback"));
+		$tokens = $oauth->get_tokens($_GET['code'], SpecialUespPatreon::getRedirectLink("callback"));
+		
 		$accessToken = $tokens['access_token'];
 		$refreshToken = $tokens['refresh_token'];
+		
+		if ($tokens['error'] != "")
+		{
+			$wgOut->addHTML("Error: Failed to get the Patreon access tokens.\n<br/>");
+			$wgOut->addHTML("{$tokens['error']}:{$tokens['error_description']}\n<br/>");
+			$wgOut->addHTML("For help contact Dave at <a href='mailto:dave@uesp.net'>dave@uesp.net</a>!\n");
+			return false;
+		}
 		
 		$api = new Patreon\API($accessToken);
 		$patronResponse = $api->fetch_user();
@@ -2483,7 +2503,7 @@ class SpecialUespPatreon extends SpecialPage
 		global $wgUser;
 		
 		if (!$wgUser->isLoggedIn()) return false;
-
+		
 		$hasDonated = 0;
 		$relationships = $patron['relationships'];
 		
@@ -2591,13 +2611,13 @@ class SpecialUespPatreon extends SpecialPage
 		if ($patreonId <= 0) 
 		{
 			$wgOut->addHTML("Follow the link below to link your Patreon account to your UESP Wiki account! ");
-			$url = SpecialUespPatreon::getLink("redirect");
+			$url = SpecialUespPatreon::getRedirectLink("redirect");
 			$wgOut->addHTML( '<p><br><a href="'.$url.'"><b>Link to Patreon</b></a>');
 		}
 		else
 		{
 			$wgOut->addHTML("Your accounts have been linked! Follow the link below to unlink your accounts. ");
-			$url = SpecialUespPatreon::getLink("unlink");
+			$url = SpecialUespPatreon::getRedirectLink("unlink");
 			$wgOut->addHTML( '<p><br><a href="'.$url.'"><b>Unlink Patreon Account</b></a>');
 		}
 		
@@ -2619,7 +2639,7 @@ class SpecialUespPatreon extends SpecialPage
 		$viewLink = SpecialUespPatreon::getLink("list");
 		$activeLink = SpecialUespPatreon::getLink("list", "showactive=1&showinactive=0");
 		$noRewarwdLink = SpecialUespPatreon::getLink("listnoreward");
-		$linkLink = SpecialUespPatreon::getLink("link");
+		$linkLink = SpecialUespPatreon::getRedirectLink("link");
 		$newLink = SpecialUespPatreon::getLink("shownew");
 		$tierChangeLink = SpecialUespPatreon::getLink("tierchange");
 		$wikiLink = SpecialUespPatreon::getLink("showwiki");
