@@ -66,7 +66,17 @@ class SpecialUespPatreon extends SpecialPage
 			"Orcish" => "UESPOrcish{suffix}{shirtsize}",
 			"Glass" => "UESPOrcish{suffix}{shirtsize}",
 			"Daedric" => "UESPOrcish{suffix}{shirtsize}",
-			"Other" => "UESPOther{suffix}");
+			"Other" => "UESPOther{suffix}"
+	);
+	public $orderShippingValue = array(
+			"Iron" => 100,
+			"Steel" => 300,
+			"Elven" => 2000,
+			"Orcish" => 5500,
+			"Glass" => 5500,
+			"Daedric" => 5500,
+			"Other" => 100
+	);
 	
 	public $inputAction = "";
 	public $inputShowActive = 1;
@@ -162,8 +172,11 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	public static function getTierRewardShippingValue($tier)
+	public function getTierRewardShippingValue($tier)
 	{
+		$value = $this->orderShippingValue[$tier];
+		if ($value != null) return $value;
+		
 		$tier = strtolower($tier);
 		$value = 0;
 		
@@ -471,6 +484,20 @@ class SpecialUespPatreon extends SpecialPage
 				$this->orderSku['Daedric'] = $row['v'];
 			elseif ($row['k'] == 'orderSku_Other')
 				$this->orderSku['Other'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Iron')
+				$this->orderShippingValue['Iron'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Steel')
+				$this->orderShippingValue['Steel'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Elven')
+				$this->orderShippingValue['Elven'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Orcish')
+				$this->orderShippingValue['Orcish'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Glass')
+				$this->orderShippingValue['Glass'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Daedric')
+				$this->orderShippingValue['Daedric'] = $row['v'];
+			elseif ($row['k'] == 'orderValue_Other')
+				$this->orderShippingValue['Other'] = $row['v'];
 		}
 		
 		return true;
@@ -4179,6 +4206,27 @@ class SpecialUespPatreon extends SpecialPage
 		$orderSku = $req->getVal("orderSkuOther");
 		if ($orderSku) $result &= $db->update("patreon_info", [ 'v' => $orderSku ], [ 'k' => 'orderSku_Other' ]);
 		
+		$orderValue = $req->getVal("orderValueIron");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Iron' ]);
+		
+		$orderValue = $req->getVal("orderValueSteel");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Steel' ]);
+		
+		$orderValue = $req->getVal("orderValueElven");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Elven' ]);
+		
+		$orderValue = $req->getVal("orderValueOrcish");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Orcish' ]);
+		
+		$orderValue = $req->getVal("orderValueGlass");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Glass' ]);
+		
+		$orderValue = $req->getVal("orderValueDaedric");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Daedric' ]);
+		
+		$orderValue = $req->getVal("orderValueOther");
+		if ($orderValue) $result &= $db->update("patreon_info", [ 'v' => $orderValue ], [ 'k' => 'orderValue_Other' ]);
+		
 		if ($result) 
 			$wgOut->addHTML("Successfully updated all infos!");
 		else
@@ -4268,6 +4316,34 @@ class SpecialUespPatreon extends SpecialPage
 		$value = $this->escapeHtml($this->orderSku['Other']);
 		$wgOut->addHTML("<tr><th>Order SKU Other</th>");
 		$wgOut->addHTML("<td><input type='text' name='orderSkuOther' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Iron']);
+		$wgOut->addHTML("<tr><th>Order Value Iron</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueIron' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Steel']);
+		$wgOut->addHTML("<tr><th>Order Value Steel</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueSteel' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Elven']);
+		$wgOut->addHTML("<tr><th>Order Value Elven</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueElven' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Orcish']);
+		$wgOut->addHTML("<tr><th>Order Value Orcish</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueOrcish' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Glass']);
+		$wgOut->addHTML("<tr><th>Order Value Glass</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueGlass' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Daedric']);
+		$wgOut->addHTML("<tr><th>Order Value Daedric</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueDaedric' value='$value' size='32' maxlength='32' /></td></tr>");
+		
+		$value = $this->escapeHtml($this->orderShippingValue['Other']);
+		$wgOut->addHTML("<tr><th>Order Value Other</th>");
+		$wgOut->addHTML("<td><input type='text' name='orderValueOther' value='$value' size='32' maxlength='32' /></td></tr>");
 		
 		$wgOut->addHTML("</tbody></table>");
 		$wgOut->addHTML("<input type='submit' value='Save Infos' /></form>");
