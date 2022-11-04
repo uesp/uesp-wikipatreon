@@ -209,3 +209,8 @@
 .uesppatEditTagButton:hover {
 	background-color: #eee;
 }
+
+#uesppatSetShipMethodButton,
+#uesppatResetShipMethodButton {
+	float: right;
+}

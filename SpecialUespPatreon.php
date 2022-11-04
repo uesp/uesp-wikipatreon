@@ -5,6 +5,9 @@
  * 		- Select all "due" rows
  * 		- Delete shipment
  * 		- Add rewards for a net 0 due for former patrons
+ * 		- Show tier changes only for current year?
+ * 		- Auto choose shipping method
+ * 		- Select all curently valid patrons for shipping
  */
 
 
@@ -35,9 +38,12 @@ class SpecialUespPatreon extends SpecialPage
 	public $SHIP_METHODS = array(
 			"Asendia Fully Tracked",
 			"Asendia Country Tracked",
+			"Asendia ePacket Canada Duties Paid",
+			"Asendia Priority Mail Canada Duties Paid",
 			"Asendia Tracked Duties Paid",
 			"Asendia e-PAQ Select",
-			"USPS ePacket Canada Duties Paid",
+			"Asendia e-PAQ Select Express",
+			//"USPS ePacket Canada Duties Paid",
 			"USPS First Class Mail International",
 			"USPS Priority Mail International",
 			"USPS Priority Mail Canada Duties Paid",
@@ -46,10 +52,12 @@ class SpecialUespPatreon extends SpecialPage
 			"USPS Priority Mail",
 	);
 	
+	public static $DEFAULT_SHIRT_SIZE = 'L';
+	
 	public static $YEARLY_DISCOUNT = 0.10;			// TODO: Put in database?
 	
 	public static $REWARD_YEAR = 2022;				// TODO: Put in database?
-	public static $REWARD_YEAR_START = "20 November 2022";
+	public static $REWARD_YEAR_START = "20 October 2022";
 	public static $REWARD_YEAR_END = "30 June 2023";
 	public static $REWARD_CHARGE_DATE = "2 January 2022";
 	
@@ -248,6 +256,7 @@ class SpecialUespPatreon extends SpecialPage
 		if ($patron)
 		{
 			$shirtSize = $patron['shirtSize'];
+			if ($shirtSize == null || $shirtSize == '') $shirtSize = self::$DEFAULT_SHIRT_SIZE;
 			$tier = $patron['tier'];
 		}
 		
@@ -3853,7 +3862,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function showCreateShipment() 
+	private function showCreateShipment()
 	{
 		$wgOut = $this->getOutput();
 		
@@ -3875,6 +3884,9 @@ class SpecialUespPatreon extends SpecialPage
 		$count = count($this->inputPatronIds);
 		$wgOut->addHTML("Created new shipments with $count patrons! ");
 		$wgOut->addHTML("Edit below shipments as needed and save to update shipment data. Invalid shipments will not be saved. ");
+		
+		$wgOut->addHTML("<button id='uesppatSetShipMethodButton'>Auto Shipment Methods</button>");
+		$wgOut->addHTML("<button id='uesppatResetShipMethodButton'>Reset Shipment Methods</button>");
 		
 		$formLink = $this->getLink("savenewshipments"); 
 		$wgOut->addHTML("<form method='post' id='uesppatSaveNewShipmentForm' action='$formLink' onsubmit='uesppatOnSaveNewShipments()'>");
@@ -4094,14 +4106,14 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$orderNumber</td>");
 			$wgOut->addHTML("<td>$orderSku</td>");
 			$wgOut->addHTML("<td>$orderQnt</td>");
-			$wgOut->addHTML("<td>$shipMethod</td>");
+			$wgOut->addHTML("<td class='uesppatShipMethodCell'>$shipMethod</td>");
 			$wgOut->addHTML("<td>$addressName</td>");
 			$wgOut->addHTML("<td>$addressLine1</td>");
 			$wgOut->addHTML("<td>$addressLine2</td>");
 			$wgOut->addHTML("<td>$addressCity</td>");
 			$wgOut->addHTML("<td>$addressState</td>");
 			$wgOut->addHTML("<td>$addressZip</td>");
-			$wgOut->addHTML("<td>$addressCountry</td>");
+			$wgOut->addHTML("<td class='uesppatCountryCell'>$addressCountry</td>");
 			$wgOut->addHTML("<td>$email</td>");
 			$wgOut->addHTML("<td>$addressPhone</td>");
 			$wgOut->addHTML("<td>$pledgeCadence</td>");

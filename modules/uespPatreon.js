@@ -901,6 +901,32 @@ window.uesppatOnEditTagButtonClick = function()
 }
 
 
+window.uesppatOnSetShipmentMethod = function()
+{
+	$("#uesppatCreateShipments .uesppatShipMethodDeminisWarning").each(function() {
+		var $this = $(this);
+		
+		var country = $this.siblings('.uesppatCountryCell').text().toUpperCase();
+		
+		if (country == 'CA')
+			$this.text('Asendia ePacket Canada Duties Paid');
+		else
+			$this.text('Asendia Tracked Duties Paid');
+		
+	});
+}
+
+
+window.uesppatOnResetShipmentMethod = function()
+{
+	
+	$("#uesppatCreateShipments .uesppatShipMethodCell").each(function() {
+		var $this = $(this);
+		$this.text('');
+	});
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatShipmentTableHeaderCheckbox").on("change", uesppatOnPatronShipmentHeaderCheckbox);
@@ -924,6 +950,9 @@ $(function() {
 	if ($("#uespPatEditShipmentForm").length > 0) uespatUpdateEditShipmentDeminis();
 	
 	$(".uesppatEditTagButton").on("click", uesppatOnEditTagButtonClick);
+	
+	$("#uesppatSetShipMethodButton").on("click", uesppatOnSetShipmentMethod);
+	$("#uesppatResetShipMethodButton").on("click", uesppatOnResetShipmentMethod);
 	
 	uespPatUpdateAllShipmentsDeminis();
 });
