@@ -4538,6 +4538,36 @@ class SpecialUespPatreon extends SpecialPage
 		}
 		
 		$wgOut->addHTML("</ul></li>");
+		
+		$rewardYear = self::$REWARD_YEAR;
+		$wgOut->addHTML("<li><b>Rewards for $rewardYear</b><ul>");
+		
+		$totalValue = 0;
+		$totalCount = 0;
+		$totalMissing = 0;
+		$totalMissing1 = 0;
+		
+		foreach ($this->patrons as $patron)
+		{
+			$yearRewardData = $this->getYearlyRewardData($patron['rewards']);
+			$totalCount += $yearRewardData['count'];
+			$totalValue += $yearRewardData['value'];
+			
+			$tierYearly = $this->getYearlyTierAmount($patron['tier'], $patron['pledgeCadence']);
+			$netDue = $patron['lifetimePledgeCents'] - $patron['totalRewardValue'];
+			
+			if ($yearRewardData['count'] < 1) {
+				 if ($patron['status'] == 'active_patron') $totalMissing++;
+				 if ($netDue >= $tierYearly/2) $totalMissing1++;
+			}
+		}
+		
+		$yearReward = '$' . number_format($totalValue / 100, 2);
+		$wgOut->addHTML("<li>Total Sent = $totalCount</li>");
+		$wgOut->addHTML("<li>Total Not Yet Sent = $totalMissing active / $totalMissing1 net due (estimates)</li>");
+		$wgOut->addHTML("<li>Total Value = $yearReward</li>");
+		
+		$wgOut->addHTML("</ul></li>");
 		$wgOut->addHTML("</ul>");
 	}
 	
