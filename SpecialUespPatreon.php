@@ -1642,6 +1642,11 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<td>$patronTags &nbsp; &nbsp; <a class='uesppatEditTableLink' href='$editLink'>Edit</a></td>");
 		$wgOut->addHTML("</tr>");
 		
+		$wgOut->addHTML("<tr>");
+		$wgOut->addHTML("<th>E-mail</th>");
+		$wgOut->addHTML("<td><a href='mailto:$patronEmail' target='_blank'>$patronEmail</a></td>");
+		$wgOut->addHTML("</tr>");
+		
 		if ($addressLine1) $addressLine1 .= "<br/>";
 		if ($addressLine2) $addressLine2 .= "<br/>";
 		$wgOut->addHTML("<tr>");
