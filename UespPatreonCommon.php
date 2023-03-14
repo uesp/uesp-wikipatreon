@@ -112,6 +112,10 @@ class UespPatreonCommon {
 					$patron['tier'] = $tiers[$id]['title'];
 					if ($patron['tier']== null) $patron['tier'] = "";
 				}
+				else
+				{
+					print("\tError: Unknown tier id $id!\n");
+				}
 			}
 			
 			if ($rel['user'] != null && $rel['user']['data'] != null) {

@@ -158,7 +158,7 @@ class UespPatreonUpdate {
 		} while ($nextCursor != null);
 		
 		//* Debug Output
-		//$output = print_r($response, true);
+		//$output = print_r($responses, true);
 		//print($output);
 		//file_put_contents("/tmp/response.json", $output);
 		//exit(); //*/
