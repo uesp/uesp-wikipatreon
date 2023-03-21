@@ -270,7 +270,7 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
-	private function makeOrderNumber($tier) 
+	private function makeOrderNumber($tier, $amount = 1)
 	{
 		if ($tier == null || $tier == "") $tier = 'Other';
 		
@@ -278,15 +278,15 @@ class SpecialUespPatreon extends SpecialPage
 		{
 			$tier = 'Other';
 			$orderIndex = $this->orderIndex['Other'];
-			++$this->orderIndex['Other'];
+			$this->orderIndex['Other'] += $amount;
 		}
 		else
 		{
 			$orderIndex = $this->orderIndex[$tier];
-			++$this->orderIndex[$tier];
+			$this->orderIndex[$tier] += $amount;
 		}
 		
-		$orderIndex = str_pad ($orderIndex, 3, '0', STR_PAD_LEFT);
+		$orderIndex = str_pad($orderIndex, 3, '0', STR_PAD_LEFT);
 		$orderNumber = "$tier{$this->orderSuffix}-$orderIndex";
 		
 		$this->saveInfoOnExit = true;
@@ -2339,7 +2339,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>Patron Since</th>");
 		$wgOut->addHTML("<th>Last Charge</th>");
 		$wgOut->addHTML("<th>Has Address</th>");
-		$wgOut->addHTML("<th class='unsortable'>Tags</th>");
+		$wgOut->addHTML("<th>Tags</th>");
 		$wgOut->addHTML("<th class='unsortable'></th>");
 		$wgOut->addHTML("</tr></thead><tbody>");
 		
@@ -3942,12 +3942,21 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<input type='checkbox' value='1' name='customshipvalueadjustyearly' id='uesppatCustomShipAdjustValues' checked> Adjust Yearly Pledges &nbsp; ");
 		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomShipmentRewardValueButton();'>Update Reward Values</button><br/>\n");
 		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Shipment Value</div> <input type='text'' value='0.00' name='customshipvalue' class='uesppatCustomShipValue' id='uesppatCustomShipValue'> ");
+		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomShipmentValueButton();'>Update Shipment Values</button><br/>\n");
+		
 		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>SKU</div> <input type='text'' value='' name='customshipsku' class='uesppatCustomShipValue' id='uesppatCustomShipSku'> ");
 		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomShipmentSkuButton();'>Update SKUs</button><br/>\n");
 		
 		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Date</div> <input type='text'' value='$today' name='customshipdate' id='uespPatCustomShipDate' class='uesppatCustomShipValue'> <br/>\n");
 		
+		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Order #</div> <input type='text'' value='' name='customordernumber' id='uespPatCustomOrderNumber' class='uesppatCustomShipValue'> \n");
+		$wgOut->addHTML("<button onclick='uesppatOnUpdateCustomOrderNumberButton();'>Update Order Numbers</button><br/>\n");
+		
 		$wgOut->addHTML("<div class='uesppatCustomShipValueLabel'>Mark as Processed</div> <input type='checkbox' value='1' name='customshipvaluemarkprocess' id='uesppatCustomShipMarkProcess' checked> <br/>");
+		
+		$wgOut->addHTML("<button id='uesppatSetShipMethodButton'>Auto Shipment Methods</button>");
+		$wgOut->addHTML("<button id='uesppatResetShipMethodButton'>Reset Shipment Methods</button> </br>");
 		
 		$this->outputCreateShipmentTable(true);
 		
@@ -4389,6 +4398,55 @@ class SpecialUespPatreon extends SpecialPage
 		$jsonOutput = array(
 				'orderNumber' => $orderNumber,
 				'orderSku' => $orderSku,
+		);
+		
+		header( "Expires: 0" );
+		header( "Cache-Control: must-revalidate, post-check=0, pre-check=0" );
+		header( "Cache-Control: public" );
+		header( "Content-type: application/json" );
+		
+		print (json_encode($jsonOutput));
+		
+		die();
+	}
+	
+	
+	private function getOrderNumbers()
+	{
+		$wgOut = $this->getOutput();
+		
+		if (!$this->hasPermission("edit")) 
+		{
+			$wgOut->addHTML("Permission Denied!");
+			return false;
+		}
+		
+		$this->loadInfo();
+		
+		$req = $this->getRequest();
+		$qnt = intval($req->getVal("qnt"));
+		if ($qnt <= 0) $qnt = 1;
+		$tier = $req->getVal("tier");
+		if ($tier == null) $tier = 'Other';
+		
+		if ($this->orderIndex[$tier] == null)
+		{
+			$startOrderIndex = $this->orderIndex['Other'];
+		}
+		else
+		{
+			$startOrderIndex = $this->orderIndex[$tier];
+		}
+		
+		$orderNumber = $this->makeOrderNumber($tier, $qnt);
+		$orderSku = $this->makeOrderSku(null, $tier, '?');
+		
+		$jsonOutput = array(
+				'orderNumber' => $orderNumber,
+				'orderIndex' => $startOrderIndex,
+				'orderSku' => $orderSku,
+				'orderPrefix' => "$tier{$this->orderSuffix}-",
+				'qnt' => $qnt,
 		);
 		
 		header( "Expires: 0" );
@@ -4940,6 +4998,9 @@ class SpecialUespPatreon extends SpecialPage
 				break;
 			case 'getordernumber':
 				$this->getOrderNumber();
+				break;
+			case 'getordernumbers':
+				$this->getOrderNumbers();
 				break;
 			case 'editinfos':
 				$this->showEditInfos();

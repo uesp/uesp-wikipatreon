@@ -149,6 +149,21 @@ window.uesppatOnUpdateCustomShipmentRewardValueButton = function()
 }
 
 
+window.uesppatOnUpdateCustomShipmentValueButton = function()
+{
+	var rows = $("#uesppatCreateShipments tr");
+	var shipValue = parseFloat($("#uesppatCustomShipValue").val().replace(/[^0-9.]/g, '')).toFixed(2);
+	
+	rows.each(function(){
+		var $this = $(this);
+		var value = $this.find("td").eq(-2);
+		value.text("$" + shipValue);
+	});
+	
+	uespPatUpdateAllShipmentsDeminis();
+}
+
+
 window.uesppatOnUpdateCustomShipmentSkuButton = function()
 {
 	var rows = $("#uesppatCreateShipments tr");
@@ -649,6 +664,45 @@ window.uesppatEscapeHtml = function(unsafeText) {
     div.innerText = unsafeText;
     return div.innerHTML;
 }
+
+
+window.uesppatOnUpdateCustomOrderNumberButton = function() {
+	//getordernumbers
+	var rows = $("#uesppatCreateShipments tbody tr");
+	
+	var qnt = rows.length;
+	if (qnt <= 0) return;
+	
+	var url = "/wiki/Special:UespPatreon/getordernumbers?qnt=" + qnt;
+	
+	$.ajax({
+		url: url,
+	}).done(uesppatOnGetShipOrderNumbersRequest);
+	
+}
+
+
+window.uesppatOnGetShipOrderNumbersRequest = function(data)
+{
+	if (data && data.orderIndex && data.qnt && data.orderPrefix)
+	{
+		var rows = $("#uesppatCreateShipments tbody tr");
+		var orderIndex = data.orderIndex;
+		var orderPrefix = $("#uespPatCustomOrderNumber").val().trim();
+		
+		rows.each(function() {
+			var $this = $(this);
+			var cols = $(this).children("td");
+			var orderNumber = data.orderPrefix + orderIndex;
+			if (orderPrefix != '')orderNumber = orderPrefix + orderIndex;
+			
+			++orderIndex;
+			
+			cols.eq(4).text(orderNumber);
+		});
+	}
+}
+
 
 
 window.uesppatOnSaveNewShipments = function() {
