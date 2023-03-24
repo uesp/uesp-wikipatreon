@@ -207,8 +207,8 @@ class SpecialUespPatreon extends SpecialPage
 	
 			// Needs a full URL for the patreon redirect link that matches expected values (en or content3)
 	public static function getPreferenceLink() {
-		return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
-		//return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		//return "https://content3.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
+		return "https://en.uesp.net/wiki/Special:Preferences#mw-prefsection-uesppatreon";
 		//return "/wiki/Special:Preferences#mw-prefsection-uesppatreon";
 	}
 	
@@ -2590,7 +2590,14 @@ class SpecialUespPatreon extends SpecialPage
 				'refresh_token' => $tokens['refresh_token'],
 		);
 		
-		$db->upsert('patreon_user', $newValues, array("patreon_id"), $updateValues);
+		$db->update('patreon_user', $updateValues, ['patreon_id' => $patron['id']], __METHOD__, "IGNORE");
+		
+		if ($db->affectedRows() <= 0)
+		{
+			$db->insert('patreon_user', $newValues);
+		}
+			// This does not work reliably....always inserts instead of updatingf
+		//$db->upsert('patreon_user', $newValues, array('patreon_id'), $updateValues);
 		
 		return true;
 	}
