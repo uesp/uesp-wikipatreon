@@ -2241,7 +2241,7 @@ class SpecialUespPatreon extends SpecialPage
 			
 			if ($this->inputFilter != "")
 			{
-				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
+				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false && stripos($patron['addressName'], $this->inputFilter) === false) continue;
 			}
 			
 			if ($this->inputTag != "")
@@ -2349,7 +2349,7 @@ class SpecialUespPatreon extends SpecialPage
 			
 			if ($this->inputFilter != "")
 			{
-				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false) continue;
+				if (stripos($patron['name'], $this->inputFilter) === false && stripos($patron['email'], $this->inputFilter) === false && stripos($patron['addressName'], $this->inputFilter) === false) continue;
 			}
 			
 			if ($this->inputTag != "")
