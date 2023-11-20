@@ -56,16 +56,16 @@ class SpecialUespPatreon extends SpecialPage
 	
 	public static $YEARLY_DISCOUNT = 0.10;			// TODO: Put in database?
 	
-	public static $REWARD_YEAR = 2022;				// TODO: Put in database?
-	public static $REWARD_YEAR_START = "20 October 2022";
-	public static $REWARD_YEAR_END = "30 June 2023";
-	public static $REWARD_CHARGE_DATE = "2 January 2022";
+	public static $REWARD_YEAR = 2023;				// TODO: Put in database?
+	public static $REWARD_YEAR_START = "1 July 2023";
+	public static $REWARD_YEAR_END = "30 June 2024";
+	public static $REWARD_CHARGE_DATE = "2 January 2023";
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
 	
 		/* These are the default values only. Actual values are stored and loaded from the database */
-	public $orderSuffix = "22";
+	public $orderSuffix = "23";
 	public $orderIndex = array( "Iron" => 1, "Steel" => 1, "Elven" => 1, "Orcish" => 1, "Glass" => 1, "Daedric" => 1, "Other" => 1);
 	public $orderSku = array(
 			"Iron" => "UESPIron{suffix}",
