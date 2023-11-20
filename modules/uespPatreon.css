@@ -214,3 +214,15 @@
 #uesppatResetShipMethodButton {
 	float: right;
 }
+
+#uesppatViewShipments td:nth-child(5),
+#uesppatViewShipments td:nth-child(6),
+#uesppatViewShipments td:nth-child(8),
+#uesppatViewShipments td:nth-child(10),
+#uesppatViewShipments td:nth-child(12) {
+	font-size: small;
+}
+
+table.wikitable > * > tr > td {
+	padding: 0.1em;
+}

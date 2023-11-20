@@ -548,7 +548,7 @@ class SpecialUespPatreon extends SpecialPage
 			$res = $db->select('patreon_shipment', ['patreon_shipment.*', 'patreon_user.name'], 'isProcessed = 0', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ] ]);
 		else
 			//$res = $db->select('patreon_shipment', '*');
-			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], '', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ] ]);
+			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], '', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.patreon_id' ] ]);
 			//$res = $db->select('patreon_shipment', ['patreon_shipment.*'], '', __METHOD__, [], ['patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ]]);
 		
 		while ($row = $res->fetchRow()) {
@@ -3158,8 +3158,11 @@ class SpecialUespPatreon extends SpecialPage
 			$addressPhone = $this->escapeHtml($shipment['addressPhone']);
 			$email = $this->escapeHtml($shipment['email']);
 			$emailText = "<a href='mailto:$email' target='_blank'><small>$email</small></a>";
-			$patron =  $this->escapeHtml($shipment['name']) . " ({$shipment['patreon_id']})";
 			$checkbox = "<input type='checkbox' name='shipmentids[]' class='uesppatShipmentRowCheckbox' value='$id'/>";
+			
+			$patron =  $this->escapeHtml($shipment['name']);
+			$userLink = $this->getLink("viewpatron", "patronid={$shipment['patreon_id']}");
+			if ($showPatronLink) $patron = "<a href='$userLink'>$patron</a>";
 			
 			$processClass = "";
 			
@@ -3185,21 +3188,21 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$index</td>");
 			$wgOut->addHTML("<td class='$processClass'>$isProcessed</td>");
 			$wgOut->addHTML("<td><small>$createDate</small></td>");
-			$wgOut->addHTML("<td>$orderNumber</td>");
+			$wgOut->addHTML("<td><small>$orderNumber</small></td>");
 			$wgOut->addHTML("<td>$orderSku</td>");
 			$wgOut->addHTML("<td>$orderQnt</td>");
-			$wgOut->addHTML("<td>$shipMethod</td>");
-			$wgOut->addHTML("<td>$patron</td>");
-			$wgOut->addHTML("<td>$addressName</td>");
+			$wgOut->addHTML("<td><small>$shipMethod</small></td>");
+			$wgOut->addHTML("<td><small>$patron</small></td>");
+			$wgOut->addHTML("<td><small>$addressName</small></td>");
 			$wgOut->addHTML("<td><small>$addressLine1</small></td>");
 			$wgOut->addHTML("<td><small>$addressLine2</small></td>");
-			$wgOut->addHTML("<td>$addressCity</td>");
-			$wgOut->addHTML("<td>$addressState</td>");
-			$wgOut->addHTML("<td>$addressZip</td>");
-			$wgOut->addHTML("<td>$addressCountry</td>");
+			$wgOut->addHTML("<td><small>$addressCity</small></td>");
+			$wgOut->addHTML("<td><small>$addressState</small></td>");
+			$wgOut->addHTML("<td><small>$addressZip</small></td>");
+			$wgOut->addHTML("<td><small>$addressCountry</small></td>");
 			$wgOut->addHTML("<td>$emailText</td>");
 			$wgOut->addHTML("<td><small>$addressPhone</small></td>");
-			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a> &nbsp; &nbsp; $patronLink</td>");
+			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a></td>");
 			$wgOut->addHTML("</tr>");
 			
 			++$index;
