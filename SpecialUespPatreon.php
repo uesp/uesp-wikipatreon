@@ -544,9 +544,12 @@ class SpecialUespPatreon extends SpecialPage
 		$db = wfGetDB(DB_SLAVE);
 		
 		if ($this->inputShowOnlyUnprocessed)
-			$res = $db->select('patreon_shipment', '*', 'isProcessed = 0');
+			//$res = $db->select('patreon_shipment', '*', 'isProcessed = 0');
+			$res = $db->select('patreon_shipment', ['patreon_shipment.*', 'patreon_user.name'], 'isProcessed = 0', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ] ]);
 		else
-			$res = $db->select('patreon_shipment', '*');
+			//$res = $db->select('patreon_shipment', '*');
+			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], '', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ] ]);
+			//$res = $db->select('patreon_shipment', ['patreon_shipment.*'], '', __METHOD__, [], ['patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ]]);
 		
 		while ($row = $res->fetchRow()) {
 			$id = intval($row['id']);
@@ -3121,6 +3124,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>SKU</th>");
 		$wgOut->addHTML("<th>Qnt</th>");
 		$wgOut->addHTML("<th>Ship Method</th>");
+		$wgOut->addHTML("<th>Patron</th>");
 		$wgOut->addHTML("<th>Addressee</th>");
 		$wgOut->addHTML("<th>Line 1</th>");
 		$wgOut->addHTML("<th>Line 2</th>");
@@ -3154,7 +3158,7 @@ class SpecialUespPatreon extends SpecialPage
 			$addressPhone = $this->escapeHtml($shipment['addressPhone']);
 			$email = $this->escapeHtml($shipment['email']);
 			$emailText = "<a href='mailto:$email' target='_blank'><small>$email</small></a>";
-			
+			$patron =  $this->escapeHtml($shipment['name']) . " ({$shipment['patreon_id']})";
 			$checkbox = "<input type='checkbox' name='shipmentids[]' class='uesppatShipmentRowCheckbox' value='$id'/>";
 			
 			$processClass = "";
@@ -3185,6 +3189,7 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$orderSku</td>");
 			$wgOut->addHTML("<td>$orderQnt</td>");
 			$wgOut->addHTML("<td>$shipMethod</td>");
+			$wgOut->addHTML("<td>$patron</td>");
 			$wgOut->addHTML("<td>$addressName</td>");
 			$wgOut->addHTML("<td><small>$addressLine1</small></td>");
 			$wgOut->addHTML("<td><small>$addressLine2</small></td>");

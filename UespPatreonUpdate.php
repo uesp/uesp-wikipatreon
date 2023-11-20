@@ -214,10 +214,10 @@ class UespPatreonUpdate {
 			$existingUser['__isupdated'] = true;
 			
 				// TODO: Tier Check
-			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "") {
+			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "" && $existingUser['tier'] != "Free" && $user['tier'] != "Free") {
 				
 					// Don't update tier changes on new or non-active users
-				if ( !$existingUser['__isnew'] && !($user['tier'] == "" && $user['status'] != "active_patron") ) {
+				if ( !$existingUser['__isnew'] && !($user['tier'] == "" && $user['status'] != "active_patron")) {
 					$newTier = array();
 					$newTier['user_id'] = $existingUser['id']; 
 					$newTier['patreon_id'] = $id;
