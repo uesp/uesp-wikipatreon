@@ -544,12 +544,9 @@ class SpecialUespPatreon extends SpecialPage
 		$db = wfGetDB(DB_SLAVE);
 		
 		if ($this->inputShowOnlyUnprocessed)
-			//$res = $db->select('patreon_shipment', '*', 'isProcessed = 0');
-			$res = $db->select('patreon_shipment', ['patreon_shipment.*', 'patreon_user.name'], 'isProcessed = 0', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ] ]);
+			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], 'isProcessed = 0', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.patreon_id' ] ]);
 		else
-			//$res = $db->select('patreon_shipment', '*');
 			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], '', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.patreon_id' ] ]);
-			//$res = $db->select('patreon_shipment', ['patreon_shipment.*'], '', __METHOD__, [], ['patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.id' ]]);
 		
 		while ($row = $res->fetchRow()) {
 			$id = intval($row['id']);
