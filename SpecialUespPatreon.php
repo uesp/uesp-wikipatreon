@@ -3470,6 +3470,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<p/>");
 		$viewLink = $this->getLink("viewshipment");
 		$wgOut->addHTML("<a href='$viewLink'>View Shipments</a>");
+		$wgOut->addHTML(" &nbsp; <a href='$viewLink?onlyunprocess=1'>View Unprocessed Shipments</a>");
 		
 		return true;
 	}
