@@ -56,16 +56,16 @@ class SpecialUespPatreon extends SpecialPage
 	
 	public static $YEARLY_DISCOUNT = 0.10;			// TODO: Put in database?
 	
-	public static $REWARD_YEAR = 2023;				// TODO: Put in database?
-	public static $REWARD_YEAR_START = "1 July 2023";
-	public static $REWARD_YEAR_END = "30 June 2024";
-	public static $REWARD_CHARGE_DATE = "2 January 2023";
+	public static $REWARD_YEAR = 2024;				// TODO: Put in database?
+	public static $REWARD_YEAR_START = "1 September 2024";
+	public static $REWARD_YEAR_END = "30 June 2025";
+	public static $REWARD_CHARGE_DATE = "1 June 2024";
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
 	
 		/* These are the default values only. Actual values are stored and loaded from the database */
-	public $orderSuffix = "23";
+	public $orderSuffix = "24";
 	public $orderIndex = array( "Iron" => 1, "Steel" => 1, "Elven" => 1, "Orcish" => 1, "Glass" => 1, "Daedric" => 1, "Other" => 1);
 	public $orderSku = array(
 			"Iron" => "UESPIron{suffix}",
@@ -1796,6 +1796,20 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function getPatronPublicName($patron)
+	{
+		//error_log("getPatronPublicName: " .  $patron['name'] . ":" . $patron['specialNote']);
+		
+		$result = preg_match('/private\((.*)\)/', $patron['specialNote'], $matches);
+		if ($result) return $matches[1];
+		
+		$result = preg_match('/private/', $patron['specialNote']);
+		if ($result) return "(Anonymous)";
+		
+		return $patron['name'];
+	}
+	
+	
 	private function showWikiList() {
 		$wgOut = $this->getOutput();
 		
@@ -1854,7 +1868,7 @@ class SpecialUespPatreon extends SpecialPage
 					$wikiText .= ";$tier Patrons (cont'd)\n";
 				}
 				
-				$name = $this->escapeHtml($patron['name']);
+				$name = $this->escapeHtml($this->getPatronPublicName($patron));
 				$wikiText .= ":$name\n";
 			}
 		}
@@ -4537,7 +4551,7 @@ class SpecialUespPatreon extends SpecialPage
 			$shirtSize = $patron['shirtSize'];
 			if ($shirtSize == "?") $shirtSize = "";
 			
-			if ($shirtSizeTiers[$tier]) 
+			if ($shirtSizeTiers[$tier])
 			{
 				$shirtSizes[$shirtSize]++;
 				$totalShirtCount++;
