@@ -879,6 +879,7 @@ class SpecialUespPatreon extends SpecialPage
 			if ($this->inputHideTierGlass && $row['tier'] == 'Glass') continue;
 			if ($this->inputHideTierDaedric && $row['tier'] == 'Daedric') continue;
 			if ($this->inputHideTierOther && $row['tier'] == '') continue;
+			if ($this->inputHideTierOther && $row['tier'] == 'Free') continue;
 			
 			$row['rewards'] = array();
 			$row['totalRewardValue'] = 0;
